@@ -1,7 +1,56 @@
+# Dependencies
 node_modules/
+
+# Build outputs
 dist/
-.turbo/
-coverage/
+build/
+out/
+
+# TypeScript
 *.tsbuildinfo
+
+# Turbo
+.turbo/
+
+# Test coverage
+coverage/
+.nyc_output/
+*.snap
+
+# Environment variables
 .env
+.env.*
+.env.local
+.env.*.local
+
+# Runtime data
 .evolver/
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE / editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Secrets
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
