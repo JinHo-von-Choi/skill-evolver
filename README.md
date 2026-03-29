@@ -1,6 +1,10 @@
-# Evolver
+# skill-evolver
 
 **Failure-driven skill evolution for LLM coding agents.**
+
+[![npm](https://img.shields.io/npm/v/@nerdvana/evolver-cli)](https://www.npmjs.com/package/@nerdvana/evolver-cli)
+[![license](https://img.shields.io/github/license/JinHo-von-Choi/skill-evolver)](LICENSE)
+[![GitHub](https://img.shields.io/badge/GitHub-skill--evolver-181717?logo=github)](https://github.com/JinHo-von-Choi/skill-evolver)
 
 [한국어](README.ko.md)
 
@@ -8,12 +12,121 @@ Evolver automatically discovers, refines, and validates reusable skills for LLM 
 
 ---
 
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [Installation](#installation)
+- [How It Works](#how-it-works)
+- [CLI Reference](#cli-reference)
+- [Adapters](#adapters)
+- [Plugins](#plugins)
+- [Architecture](#architecture)
+- [Configuration](#configuration)
+- [EvoSkill Improvements](#evoskill-improvements)
+- [Contributing](#contributing)
+
+---
+
+## Quick Start
+
+### Use via npm (recommended)
+
+```bash
+npm install -g @nerdvana/evolver-cli
+```
+
+Run evolution on the bundled example task set:
+
+```bash
+evolver evolve \
+  --task-dir ./examples/claude-code/tasks \
+  --adapter claude-code \
+  --runs 3 \
+  --budget-limit 10
+```
+
+After the loop finishes, discovered skills are written to `./skills/` and a report is printed:
+
+```
+=== Evolution Report ===
+Iterations:  7
+Total cost:  $2.3140
+Best score:  0.8833
+Best skills: chain-of-thought, geographic-lookup
+```
+
+### Use as a library
+
+```bash
+npm install @nerdvana/evolver-core @nerdvana/evolver-proposer @nerdvana/evolver-skill-builder
+```
+
+```typescript
+import { EvolutionLoop }     from "@nerdvana/evolver-core";
+import { LlmProposer }       from "@nerdvana/evolver-proposer";
+import { SkillMaterializer } from "@nerdvana/evolver-skill-builder";
+```
+
+---
+
 ## Highlights
 
-- **Failure-driven evolution** -- Skills emerge from what the agent gets wrong, not from hand-written rules. A 3-agent loop (Executor, Proposer, Builder) iterates until a budget or iteration cap is reached.
-- **Multi-run statistics** -- Every candidate is evaluated across `N` independent runs. Reports include mean, standard deviation, and confidence intervals instead of single-shot scores.
-- **Cross-model transfer** -- Skills discovered on one agent (e.g. Claude Code) can be validated on others (Cursor, Codex) via `evolver skills test --cross-model`.
-- **Cost-aware evolution** -- `CostTracker` records per-iteration token usage and USD spend. `--budget-limit` triggers early termination before costs spiral.
+- **Failure-driven evolution** — Skills emerge from what the agent gets wrong, not from hand-written rules. A 3-agent loop (Executor, Proposer, Builder) iterates until a budget or iteration cap is reached.
+- **Multi-run statistics** — Every candidate is evaluated across `N` independent runs. Reports include mean, standard deviation, and confidence intervals instead of single-shot scores.
+- **Cross-model transfer** — Skills discovered on one agent (e.g. Claude Code) can be validated on others (Cursor, Codex) via `evolver skills test --cross-model`.
+- **Cost-aware evolution** — `CostTracker` records per-iteration token usage and USD spend. `--budget-limit` triggers early termination before costs spiral.
+
+---
+
+## Installation
+
+### CLI (global)
+
+```bash
+# npm
+npm install -g @nerdvana/evolver-cli
+
+# pnpm
+pnpm add -g @nerdvana/evolver-cli
+
+# yarn
+yarn global add @nerdvana/evolver-cli
+```
+
+### Packages (programmatic use)
+
+```bash
+# Core engine only
+npm install @nerdvana/evolver-core
+
+# Full stack
+npm install @nerdvana/evolver-core \
+            @nerdvana/evolver-proposer \
+            @nerdvana/evolver-skill-builder \
+            @nerdvana/evolver-adapter-claude-code
+```
+
+### Available packages
+
+| Package | Description |
+|---------|-------------|
+| `@nerdvana/evolver-cli` | CLI entry point (`evolver` command) |
+| `@nerdvana/evolver-core` | Evolution engine, types, Pareto frontier |
+| `@nerdvana/evolver-proposer` | LLM failure analysis & skill proposal |
+| `@nerdvana/evolver-skill-builder` | Skill materialization (SKILL.md + scripts) |
+| `@nerdvana/evolver-adapter-claude-code` | Claude Code executor & result parser |
+| `@nerdvana/evolver-adapter-cursor` | Cursor IDE executor & skill converter |
+| `@nerdvana/evolver-adapter-codex` | Codex CLI executor & skill converter |
+| `@nerdvana/evolver-plugin-memento` | Memento-mcp memory integration |
+
+### Requirements
+
+- Node.js 20+
+- `ANTHROPIC_API_KEY` environment variable (for Proposer and Builder LLMs)
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+```
 
 ---
 
@@ -45,57 +158,9 @@ The loop runs three LLM-powered agents in concert:
 
 | Agent | Role | Package |
 |-------|------|---------|
-| **Executor** | Runs the task set with current skills, collects failures | `@evolver/adapter-*` |
-| **Proposer** | Analyzes failure patterns, proposes a new or edited skill | `@evolver/proposer` |
-| **Builder** | Materializes the proposal into a SKILL.md + optional scripts | `@evolver/skill-builder` |
-
----
-
-## Quick Start
-
-```bash
-# Clone and build
-git clone <repo-url> && cd evolver
-pnpm install
-pnpm build
-
-# Run evolution on the example task set
-npx evolver evolve \
-  --task-dir ./examples/claude-code/tasks \
-  --adapter claude-code \
-  --proposer-model claude-sonnet-4-6 \
-  --builder-model claude-haiku-4-5 \
-  --runs 3 \
-  --budget-limit 10
-```
-
-After the loop finishes, discovered skills are written to `./skills/` and a report is printed:
-
-```
-=== Evolution Report ===
-Iterations:  7
-Total cost:  $2.3140
-Best score:  0.8833
-Best skills: chain-of-thought, geographic-lookup
-```
-
----
-
-## Installation
-
-```bash
-# pnpm (recommended -- workspace-native)
-pnpm install
-
-# npm
-npm install
-```
-
-Build all packages:
-
-```bash
-pnpm build   # or: npx turbo build
-```
+| **Executor** | Runs the task set with current skills, collects failures | `@nerdvana/evolver-adapter-*` |
+| **Proposer** | Analyzes failure patterns, proposes a new or edited skill | `@nerdvana/evolver-proposer` |
+| **Builder** | Materializes the proposal into a SKILL.md + optional scripts | `@nerdvana/evolver-skill-builder` |
 
 ---
 
@@ -177,8 +242,6 @@ Converts skills into `.cursorrules` and `rules/` format for the Cursor IDE.
 evolver evolve --adapter cursor --task-dir ./tasks
 ```
 
-Exports: `SkillConverter` produces Cursor-compatible rule files from SKILL.md sources.
-
 ### Codex (`codex`)
 
 Converts skills into `AGENTS.md` format for the OpenAI Codex CLI.
@@ -189,10 +252,10 @@ evolver evolve --adapter codex --task-dir ./tasks
 
 ### Writing a Custom Adapter
 
-Implement the `Executor` interface from `@evolver/core`:
+Implement the `Executor` interface from `@nerdvana/evolver-core`:
 
 ```typescript
-import type { Executor, Program, Task, ExecutionResult } from "@evolver/core";
+import type { Executor, Program, Task, ExecutionResult } from "@nerdvana/evolver-core";
 
 class MyAdapter implements Executor {
   async run(program: Program, tasks: Task[]): Promise<ExecutionResult[]> {
@@ -213,7 +276,7 @@ Plugins hook into the evolution loop lifecycle via five event points.
 ### Plugin Interface
 
 ```typescript
-import type { Plugin } from "@evolver/core";
+import type { Plugin } from "@nerdvana/evolver-core";
 
 const myPlugin: Plugin = {
   name: "my-plugin",
@@ -227,7 +290,7 @@ const myPlugin: Plugin = {
 };
 ```
 
-### Memento Plugin (`@evolver/plugin-memento`)
+### Memento Plugin (`@nerdvana/evolver-plugin-memento`)
 
 Connects to a memento-mcp server for long-term semantic memory across evolution sessions. Past failures and skill outcomes are recalled during proposal generation.
 
@@ -240,24 +303,24 @@ evolver evolve \
 ```
 
 The plugin provides:
-- `MementoClient` -- HTTP client for remember/recall/forget operations
-- `MementoPlugin` -- Plugin implementation with `onFailure`, `onProposal`, and `onEvaluation` hooks
+- `MementoClient` — HTTP client for remember/recall/forget operations
+- `MementoPlugin` — Plugin implementation with `onFailure`, `onProposal`, and `onEvaluation` hooks
 
 ---
 
 ## Architecture
 
 ```
-evolver/
+skill-evolver/
   packages/
-    core/                  @evolver/core                  Evolution engine, types, Pareto frontier
-    cli/                   @evolver/cli                   CLI entry point (commander)
-    proposer/              @evolver/proposer              LLM failure analysis & skill proposal
-    skill-builder/         @evolver/skill-builder         Skill materialization (SKILL.md + scripts)
-    adapter-claude-code/   @evolver/adapter-claude-code   Claude Code executor & result parser
-    adapter-cursor/        @evolver/adapter-cursor        Cursor IDE executor & skill converter
-    adapter-codex/         @evolver/adapter-codex         Codex CLI executor & skill converter
-    plugin-memento/        @evolver/plugin-memento        Memento-mcp memory integration
+    core/                  @nerdvana/evolver-core                  Evolution engine, types, Pareto frontier
+    cli/                   @nerdvana/evolver-cli                   CLI entry point (commander)
+    proposer/              @nerdvana/evolver-proposer              LLM failure analysis & skill proposal
+    skill-builder/         @nerdvana/evolver-skill-builder         Skill materialization (SKILL.md + scripts)
+    adapter-claude-code/   @nerdvana/evolver-adapter-claude-code   Claude Code executor & result parser
+    adapter-cursor/        @nerdvana/evolver-adapter-cursor        Cursor IDE executor & skill converter
+    adapter-codex/         @nerdvana/evolver-adapter-codex         Codex CLI executor & skill converter
+    plugin-memento/        @nerdvana/evolver-plugin-memento        Memento-mcp memory integration
   examples/
     claude-code/           Example task set (config + train + validation)
 ```
@@ -344,7 +407,9 @@ Enhancements over the original EvoSkill paper ([arXiv:2603.02766](https://arxiv.
 ## Contributing
 
 ```bash
-# Install dependencies
+# Clone and install
+git clone https://github.com/JinHo-von-Choi/skill-evolver.git
+cd skill-evolver
 pnpm install
 
 # Build all packages
@@ -359,7 +424,7 @@ pnpm lint
 
 The project uses pnpm workspaces + turborepo. Each package under `packages/` is independently buildable and testable.
 
-To add a new adapter, create a package under `packages/adapter-<name>/` implementing the `Executor` interface from `@evolver/core`. To add a new plugin, implement the `Plugin` interface.
+To add a new adapter, create a package under `packages/adapter-<name>/` implementing the `Executor` interface from `@nerdvana/evolver-core`. To add a new plugin, implement the `Plugin` interface.
 
 ---
 
@@ -371,5 +436,5 @@ To add a new adapter, create a package under `packages/adapter-<name>/` implemen
 
 ## References
 
-- **EvoSkill**: [arXiv:2603.02766](https://arxiv.org/abs/2603.02766) -- *EvoSkill: Automated Skill Discovery for LLM Agents*
+- **EvoSkill**: [arXiv:2603.02766](https://arxiv.org/abs/2603.02766) — *EvoSkill: Automated Skill Discovery for LLM Agents*
 - **Stack**: TypeScript, Node.js 20+, pnpm workspaces, turborepo, vitest
