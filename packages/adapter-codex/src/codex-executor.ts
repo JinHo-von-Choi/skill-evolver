@@ -6,7 +6,7 @@
  */
 
 import { execFile }   from "node:child_process";
-import { mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdir, writeFile, rm, mkdtemp } from "node:fs/promises";
 import { join }       from "node:path";
 import { tmpdir }     from "node:os";
 import { randomUUID } from "node:crypto";
@@ -36,6 +36,39 @@ async function deployAgentsMd(
   const filePath = join(targetDir, "AGENTS.md");
   await writeFile(filePath, agentsMd, "utf-8");
   return filePath;
+}
+
+/* ------------------------------------------------------------------ */
+/*  커스텀 스코러 실행                                                   */
+/* ------------------------------------------------------------------ */
+
+async function runCustomScorer(
+  scriptPath: string,
+  task:       Task,
+  output:     string,
+): Promise<number> {
+  const tmpDir     = await mkdtemp(join(tmpdir(), "evolver-scorer-"));
+  const taskFile   = join(tmpDir, "task.json");
+  const outputFile = join(tmpDir, "output.txt");
+
+  try {
+    await writeFile(taskFile,   JSON.stringify(task), "utf-8");
+    await writeFile(outputFile, output,               "utf-8");
+
+    return new Promise((resolve) => {
+      execFile(
+        "python3",
+        [scriptPath, taskFile, outputFile],
+        { timeout: 30_000 },
+        (_err, stdout) => {
+          const match = stdout.match(/score:\s*([\d.]+)/);
+          resolve(match ? parseFloat(match[1]) : 0);
+        },
+      );
+    });
+  } finally {
+    await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -173,8 +206,17 @@ export class CodexExecutor implements Executor {
 
     const result = parseCodexOutput(task.id, stdout, stderr, durationMs);
 
-    const scorer   = getScorer(task.scorer);
-    result.score   = scorer(result.output, task.expected);
+    const taskExt = task as unknown as Record<string, unknown>;
+    if (task.scorer === "custom" && taskExt["scorerScript"]) {
+      result.score = await runCustomScorer(
+        String(taskExt["scorerScript"]),
+        task,
+        String(result.output ?? ""),
+      );
+    } else {
+      const scorer = getScorer(task.scorer);
+      result.score = scorer(result.output, task.expected);
+    }
 
     return result;
   }
