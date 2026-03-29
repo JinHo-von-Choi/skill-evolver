@@ -1,21 +1,67 @@
 # Evolver
 
-Failure-driven skill evolution framework for LLM agents.
+**Failure-driven skill evolution for LLM coding agents.**
 
-Based on the EvoSkill architecture (arXiv:2603.02766), Evolver automatically discovers and refines agent skills by analyzing execution failures. It supplements the original paper with statistical rigor (multi-run), cost tracking, skill conflict detection, and an optional long-term memory plugin.
+[한국어](README.ko.md)
+
+Evolver automatically discovers, refines, and validates reusable skills for LLM agents by analyzing execution failures. Based on the EvoSkill architecture ([arXiv:2603.02766](https://arxiv.org/abs/2603.02766)), it adds statistical rigor, cost controls, cross-model transfer testing, and a plugin system for long-term memory.
+
+---
+
+## Highlights
+
+- **Failure-driven evolution** -- Skills emerge from what the agent gets wrong, not from hand-written rules. A 3-agent loop (Executor, Proposer, Builder) iterates until a budget or iteration cap is reached.
+- **Multi-run statistics** -- Every candidate is evaluated across `N` independent runs. Reports include mean, standard deviation, and confidence intervals instead of single-shot scores.
+- **Cross-model transfer** -- Skills discovered on one agent (e.g. Claude Code) can be validated on others (Cursor, Codex) via `evolver skills test --cross-model`.
+- **Cost-aware evolution** -- `CostTracker` records per-iteration token usage and USD spend. `--budget-limit` triggers early termination before costs spiral.
+
+---
+
+## How It Works
+
+```mermaid
+flowchart TD
+    A[Task Set] --> B[Evolution Loop]
+    B --> C{1. Select Parent}
+    C --> D[2. Execute Tasks]
+    D --> E{Failures?}
+    E -- yes --> F[3. Propose Skill]
+    F --> G[4. Build Skill]
+    G --> H[5. Validate on Held-out Set]
+    H --> I{Score improved?}
+    I -- yes --> J[6. Update Pareto Frontier]
+    I -- no --> K[Reject & Log]
+    J --> L{Budget / Iteration limit?}
+    K --> L
+    L -- no --> C
+    L -- yes --> M[Best Program + Report]
+    E -- no --> L
+
+    style A fill:#e1f5fe
+    style M fill:#c8e6c9
+```
+
+The loop runs three LLM-powered agents in concert:
+
+| Agent | Role | Package |
+|-------|------|---------|
+| **Executor** | Runs the task set with current skills, collects failures | `@evolver/adapter-*` |
+| **Proposer** | Analyzes failure patterns, proposes a new or edited skill | `@evolver/proposer` |
+| **Builder** | Materializes the proposal into a SKILL.md + optional scripts | `@evolver/skill-builder` |
+
+---
 
 ## Quick Start
 
 ```bash
-# Install
+# Clone and build
 git clone <repo-url> && cd evolver
 pnpm install
 pnpm build
 
-# Run evolution
-evolver evolve \
+# Run evolution on the example task set
+npx evolver evolve \
   --task-dir ./examples/claude-code/tasks \
-  --skills-dir ./skills \
   --adapter claude-code \
   --proposer-model claude-sonnet-4-6 \
   --builder-model claude-haiku-4-5 \
@@ -23,89 +69,148 @@ evolver evolve \
   --budget-limit 10
 ```
 
-## Architecture
+After the loop finishes, discovered skills are written to `./skills/` and a report is printed:
 
 ```
-TaskSet (input)
-  |
-  v
-EvolutionLoop (core)
-  |
-  +-- 1. parentSelection()        ParetoFrontier (round-robin)
-  |
-  +-- 2. executor.run()           Adapter executes tasks
-  |      failure collection       score < threshold -> FailureSet
-  |      [plugin] onFailure       recall past similar failures
-  |
-  +-- 3. proposer.propose()       LLM analyzes failures -> SkillProposal
-  |      [plugin] onProposal      recall similar skill history
-  |
-  +-- 4. skillBuilder.build()     Materialize SKILL.md + scripts/
-  |      ConflictDetector.check   trigger overlap detection
-  |
-  +-- 5. executor.run()           Validate candidate on held-out set
-  |      CostTracker.record       token/cost accounting
-  |
-  +-- 6. frontier.update()        Accept/reject candidate
-  |      [plugin] onEvaluation    persist skill performance
-  |
-  +-- 7. history.log()            Deduplicated feedback history
-  |
-  +-- budgetLimit exceeded?       Early termination
-  |
-  v
-Best Program + EvolutionReport
+=== Evolution Report ===
+Iterations:  7
+Total cost:  $2.3140
+Best score:  0.8833
+Best skills: chain-of-thought, geographic-lookup
 ```
 
-## CLI
+---
+
+## Installation
 
 ```bash
-evolver evolve [options]       # Run evolution loop
-evolver status                 # Current frontier, cost, iteration
-evolver skills list            # Discovered skills
-evolver skills test            # Validate skills against task set
-evolver skills export          # Export skills to agent format
+# pnpm (recommended -- workspace-native)
+pnpm install
+
+# npm
+npm install
 ```
 
-### evolve options
+Build all packages:
+
+```bash
+pnpm build   # or: npx turbo build
+```
+
+---
+
+## CLI Reference
+
+### `evolver evolve`
+
+Run the skill evolution loop.
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--task-dir` | required | Path to task directory (config.yaml + train/ + validation/) |
-| `--skills-dir` | `./skills` | Output directory for discovered skills |
-| `--adapter` | `claude-code` | Executor adapter name |
-| `--proposer-model` | `claude-sonnet-4-6` | LLM model for failure analysis |
-| `--builder-model` | `claude-haiku-4-5` | LLM model for skill materialization |
-| `--runs` | `3` | Number of independent runs (statistical rigor) |
-| `--budget-limit` | none | Maximum USD spend before early termination |
-| `--frontier-capacity` | `3` | Pareto frontier size |
-| `--max-skills` | `20` | Maximum skills per program |
+| `--task-dir <path>` | **required** | Path to task directory containing `config.yaml`, `train/`, `validation/` |
+| `--skills-dir <path>` | `./skills` | Output directory for discovered skills |
+| `--adapter <name>` | `claude-code` | Executor adapter (`claude-code`, `cursor`, `codex`) |
+| `--proposer-model <model>` | `claude-sonnet-4-6` | LLM model for failure analysis |
+| `--builder-model <model>` | `claude-haiku-4-5` | LLM model for skill materialization |
+| `--runs <n>` | `3` | Independent runs per evaluation (statistical rigor) |
+| `--budget-limit <usd>` | none | Maximum USD spend before early termination |
+| `--frontier-capacity <n>` | `3` | Pareto frontier size |
+| `--max-iterations <n>` | `10` | Maximum evolution iterations |
+| `--failure-threshold <n>` | `0.5` | Score below this is treated as failure |
+| `--plugin <name>` | none | Plugin to load (e.g. `memento`) |
+| `--memento-url <url>` | none | Memento MCP server URL (required with `--plugin memento`) |
+| `--memento-key <key>` | none | Memento MCP access key (required with `--plugin memento`) |
 
-## Adapter Extension
+### `evolver status`
 
-Implement the `Executor` interface to support a new agent:
+Show the last evolution run from `.evolver/state.json`: iterations, cost, best program, frontier size, duration.
+
+### `evolver skills list`
+
+List discovered skills in the skills directory.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--skills-dir <path>` | `./skills` | Skills directory to scan |
+
+### `evolver skills export`
+
+Export skills to another agent format.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--skills-dir <path>` | `./skills` | Skills directory |
+| `--format <fmt>` | `cursor` | Output format (`cursor`) |
+| `--output <path>` | stdout | Output file path |
+
+### `evolver skills test`
+
+Validate skills across different model adapters.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--skills-dir <path>` | `./skills` | Skills directory |
+| `--task-dir <path>` | none | Tasks directory (required with `--cross-model`) |
+| `--cross-model` | false | Run cross-model transfer test |
+| `--source <adapter>` | `claude-code` | Source adapter name |
+| `--target <adapters>` | `cursor,codex` | Comma-separated target adapter names |
+
+---
+
+## Adapters
+
+Adapters bridge the evolution loop with specific LLM agent runtimes.
+
+### Claude Code (`claude-code`)
+
+The default adapter. Deploys skills as SKILL.md files into the Claude Code skill directory and executes tasks via the Claude Code CLI.
+
+```bash
+evolver evolve --adapter claude-code --task-dir ./tasks
+```
+
+### Cursor (`cursor`)
+
+Converts skills into `.cursorrules` and `rules/` format for the Cursor IDE.
+
+```bash
+evolver evolve --adapter cursor --task-dir ./tasks
+```
+
+Exports: `SkillConverter` produces Cursor-compatible rule files from SKILL.md sources.
+
+### Codex (`codex`)
+
+Converts skills into `AGENTS.md` format for the OpenAI Codex CLI.
+
+```bash
+evolver evolve --adapter codex --task-dir ./tasks
+```
+
+### Writing a Custom Adapter
+
+Implement the `Executor` interface from `@evolver/core`:
 
 ```typescript
 import type { Executor, Program, Task, ExecutionResult } from "@evolver/core";
 
 class MyAdapter implements Executor {
   async run(program: Program, tasks: Task[]): Promise<ExecutionResult[]> {
-    // 1. Deploy program.skills to agent's skill directory
-    // 2. Execute each task via agent CLI/API
-    // 3. Parse output -> ExecutionResult
+    // 1. Deploy program.skills to the agent's skill directory
+    // 2. Execute each task via the agent's CLI or API
+    // 3. Parse output into ExecutionResult
     // 4. Score with task.scorer
   }
 }
 ```
 
-Planned adapters (v0.2+):
-- `adapter-cursor` -- .cursorrules + rules/ format
-- `adapter-codex` -- AGENTS.md format
-- `adapter-copilot` -- .github/copilot-instructions.md format
+---
 
-## Plugin System
+## Plugins
 
-Plugins hook into the evolution loop lifecycle:
+Plugins hook into the evolution loop lifecycle via five event points.
+
+### Plugin Interface
 
 ```typescript
 import type { Plugin } from "@evolver/core";
@@ -113,57 +218,158 @@ import type { Plugin } from "@evolver/core";
 const myPlugin: Plugin = {
   name: "my-plugin",
   hooks: {
-    async onFailure(failures)    { /* recall context */ },
-    async onProposal(proposal)   { /* enrich proposal */ },
-    async onEvaluation(result)   { /* persist outcome */ },
-    async onFrontierUpdate(front){ /* snapshot state  */ },
+    async onIterationStart(ctx)  { /* iteration context   */ },
+    async onFailure(failures)    { /* enrich with context */ },
+    async onProposal(proposal)   { /* augment proposal    */ },
+    async onEvaluation(result)   { /* persist outcome     */ },
+    async onFrontierUpdate(front){ /* snapshot state      */ },
   },
 };
 ```
 
-Built-in plugin: `@evolver/plugin-memento` (v0.2) connects to memento-mcp for long-term semantic memory across evolution sessions.
+### Memento Plugin (`@evolver/plugin-memento`)
 
-## Package Structure
+Connects to a memento-mcp server for long-term semantic memory across evolution sessions. Past failures and skill outcomes are recalled during proposal generation.
+
+```bash
+evolver evolve \
+  --task-dir ./tasks \
+  --plugin memento \
+  --memento-url https://your-memento-server/mcp \
+  --memento-key YOUR_ACCESS_KEY
+```
+
+The plugin provides:
+- `MementoClient` -- HTTP client for remember/recall/forget operations
+- `MementoPlugin` -- Plugin implementation with `onFailure`, `onProposal`, and `onEvaluation` hooks
+
+---
+
+## Architecture
 
 ```
 evolver/
   packages/
-    core/                  @evolver/core           Evolution engine
-    cli/                   @evolver/cli            CLI entry point
-    proposer/              @evolver/proposer        LLM failure analysis
-    skill-builder/         @evolver/skill-builder   Skill materialization
-    adapter-claude-code/   @evolver/adapter-claude-code  Claude Code adapter
+    core/                  @evolver/core                  Evolution engine, types, Pareto frontier
+    cli/                   @evolver/cli                   CLI entry point (commander)
+    proposer/              @evolver/proposer              LLM failure analysis & skill proposal
+    skill-builder/         @evolver/skill-builder         Skill materialization (SKILL.md + scripts)
+    adapter-claude-code/   @evolver/adapter-claude-code   Claude Code executor & result parser
+    adapter-cursor/        @evolver/adapter-cursor        Cursor IDE executor & skill converter
+    adapter-codex/         @evolver/adapter-codex         Codex CLI executor & skill converter
+    plugin-memento/        @evolver/plugin-memento        Memento-mcp memory integration
   examples/
-    claude-code/           Example task set
+    claude-code/           Example task set (config + train + validation)
 ```
 
-## Task Directory Format
+### Core Components
+
+| Component | Description |
+|-----------|-------------|
+| `EvolutionLoop` | Main orchestrator. Runs the select-execute-propose-build-validate cycle. |
+| `ParetoFrontier` | Maintains top-k programs by score. Round-robin parent selection. |
+| `AdaptiveFrontier` | Extends ParetoFrontier with automatic capacity adjustment based on diversity metrics (skill overlap rate, score variance). |
+| `FeedbackHistory` | Deduplicated log of all proposals, their acceptance status, and score deltas. |
+| `CostTracker` | Per-iteration token usage and USD cost accounting. |
+| `ConflictDetector` | Detects trigger overlap between skills; enforces `--max-skills` capacity. |
+| `CrossModelTester` | Validates skill transfer across adapters; reports transfer rate percentage. |
+| `LlmProposer` | Analyzes failure patterns (`groupByPattern`) and generates `SkillProposal` via LLM. |
+| `SkillMaterializer` | Converts proposals into concrete SKILL.md files with optional scripts. |
+| `META_SKILL` | Meta-skill template used by the builder for skill structure. |
+
+---
+
+## Configuration
+
+### Task Directory
 
 ```
 tasks/
-  config.yaml            # scorer, categories
+  config.yaml
   train/
-    task-001.yaml        # { id, input, expected, category? }
+    task-001.yaml
     task-002.yaml
   validation/
     task-010.yaml
 ```
 
+**config.yaml**:
+
+```yaml
+scorer: exact-match          # exact-match | fuzzy | llm-judge | custom
+categories: [math, geography, reasoning]
+```
+
+**task-001.yaml**:
+
+```yaml
+id: task-001
+input: "What is the capital of South Korea?"
+expected: "Seoul"
+category: geography
+```
+
+### EvolutionConfig
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `maxIterations` | `number` | Maximum evolution iterations |
+| `epochs` | `number` | Epoch multiplier for training |
+| `failureThreshold` | `number` | Score below this triggers failure collection |
+| `frontier.capacity` | `number` | Pareto frontier size (k) |
+| `frontier.selectionStrategy` | `string` | `"round-robin"` or `"tournament"` |
+| `runs` | `number` | Independent runs per evaluation |
+| `budgetLimit` | `number?` | USD cap for early termination |
+| `maxSkills` | `number` | Maximum skills per program |
+
+---
+
 ## EvoSkill Improvements
 
-| EvoSkill limitation | Evolver solution |
+Enhancements over the original EvoSkill paper ([arXiv:2603.02766](https://arxiv.org/abs/2603.02766)):
+
+| EvoSkill Limitation | Evolver Solution |
 |---------------------|------------------|
 | Single run, no statistics | `--runs N` with mean/stddev/CI report |
-| No cost analysis | CostTracker: per-iteration token/cost, `--budget-limit` |
-| Skill conflicts ignored | ConflictDetector: trigger overlap detection, `--max-skills` |
-| Single model only | Separate `--proposer-model` / `--builder-model` |
-| k=3 unjustified | Manual `--frontier-capacity`, auto-tuning in v0.2 |
+| No cost analysis | `CostTracker`: per-iteration token/cost accounting, `--budget-limit` early stop |
+| Skill conflicts ignored | `ConflictDetector`: trigger overlap detection, `--max-skills` cap |
+| Single model only | Separate `--proposer-model` / `--builder-model` for cost optimization |
+| Fixed frontier k=3 | `--frontier-capacity` manual override + `AdaptiveFrontier` auto-tuning |
+| No cross-model validation | `CrossModelTester`: skill transfer rate across adapters |
+| No long-term memory | `plugin-memento`: semantic memory across evolution sessions |
+| No plugin system | Lifecycle hooks: `onFailure`, `onProposal`, `onEvaluation`, `onFrontierUpdate` |
 
-## References
+---
 
-- EvoSkill: arXiv:2603.02766
-- TypeScript, Node.js 20+, pnpm workspace, turborepo, vitest
+## Contributing
+
+```bash
+# Install dependencies
+pnpm install
+
+# Build all packages
+pnpm build
+
+# Run tests
+pnpm test
+
+# Lint
+pnpm lint
+```
+
+The project uses pnpm workspaces + turborepo. Each package under `packages/` is independently buildable and testable.
+
+To add a new adapter, create a package under `packages/adapter-<name>/` implementing the `Executor` interface from `@evolver/core`. To add a new plugin, implement the `Plugin` interface.
+
+---
 
 ## License
 
-MIT
+[MIT](LICENSE)
+
+---
+
+## References
+
+- **EvoSkill**: [arXiv:2603.02766](https://arxiv.org/abs/2603.02766) -- *EvoSkill: Automated Skill Discovery for LLM Agents*
+- **Stack**: TypeScript, Node.js 20+, pnpm workspaces, turborepo, vitest
