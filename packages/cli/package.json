@@ -1,0 +1,28 @@
+{
+  "name": "@evolver/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "evolver": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@evolver/core": "workspace:*",
+    "@evolver/proposer": "workspace:*",
+    "@evolver/skill-builder": "workspace:*",
+    "@evolver/adapter-claude-code": "workspace:*",
+    "commander": "^13.1.0",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.4.0",
+    "vitest": "^3.1.0"
+  }
+}
