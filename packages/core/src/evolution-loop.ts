@@ -10,12 +10,14 @@ import type {
   Failure,
   PluginContext,
   EvaluationResult,
+  ExecutionResult,
   FeedbackEntry,
   Skill,
 } from "./types.js";
-import { ParetoFrontier }  from "./pareto-frontier.js";
-import { FeedbackHistory } from "./feedback-history.js";
-import { CostTracker }     from "./cost-tracker.js";
+import { ParetoFrontier }    from "./pareto-frontier.js";
+import { FeedbackHistory }   from "./feedback-history.js";
+import { CostTracker }       from "./cost-tracker.js";
+import { ConflictDetector }  from "./conflict-detector.js";
 
 export interface EvolutionLoopOptions {
   executor:        Executor;
@@ -42,9 +44,10 @@ export class EvolutionLoop {
   private readonly validationTasks: Task[];
   private readonly config:          EvolutionConfig;
   private readonly plugins:         Plugin[];
-  private readonly frontier:        ParetoFrontier;
-  private readonly history:         FeedbackHistory;
-  private readonly costTracker:     CostTracker;
+  private readonly frontier:          ParetoFrontier;
+  private readonly history:           FeedbackHistory;
+  private readonly costTracker:       CostTracker;
+  private readonly conflictDetector:  ConflictDetector;
 
   constructor(opts: EvolutionLoopOptions) {
     this.executor        = opts.executor;
@@ -54,17 +57,22 @@ export class EvolutionLoop {
     this.validationTasks = opts.validationTasks;
     this.config          = opts.config;
     this.plugins         = opts.plugins ?? [];
-    this.frontier        = new ParetoFrontier(opts.config.frontier);
-    this.history         = new FeedbackHistory();
-    this.costTracker     = new CostTracker({ budgetLimit: opts.config.budgetLimit });
+    this.frontier          = new ParetoFrontier(opts.config.frontier);
+    this.history           = new FeedbackHistory();
+    this.costTracker       = new CostTracker({ budgetLimit: opts.config.budgetLimit });
+    this.conflictDetector  = new ConflictDetector({
+      maxSkills:           opts.config.maxSkills,
+      similarityThreshold: 0.8,
+    });
   }
 
   async run(): Promise<EvolutionReport> {
     const startTime = Date.now();
 
     const baseline = this.makeBaselineProgram();
-    const baselineResults = await this.executor.run(baseline, this.validationTasks);
-    baseline.score = this.averageScore(baselineResults);
+    const { results: baselineResults, avgScore: baselineScore } =
+      await this.runWithAveraging(baseline, this.validationTasks, this.config.runs);
+    baseline.score = baselineScore;
     this.frontier.update(baseline);
     this.recordCost(0, baselineResults);
 
@@ -81,7 +89,8 @@ export class EvolutionLoop {
       });
 
       const parent       = this.frontier.selectParent();
-      const trainResults = await this.executor.run(parent, this.trainTasks);
+      const { results: trainResults } =
+        await this.runWithAveraging(parent, this.trainTasks, this.config.runs);
       this.recordCost(i, trainResults);
 
       const failures: Failure[] = trainResults
@@ -113,12 +122,22 @@ export class EvolutionLoop {
         }
       }
 
+      const conflicts = this.conflictDetector.check(
+        { name: proposal.skillName, trigger: proposal.trigger, content: "" },
+        parent.skills,
+      );
+      if (conflicts.length > 0) {
+        console.warn(`[evolver] Skipping proposal "${proposal.skillName}": ${conflicts[0].message}`);
+        continue;
+      }
+
       const skill     = await this.skillBuilder.build(proposal, parent.skills, proposalCtx);
       const candidate = this.makeCandidate(parent, skill, i + 1);
 
-      const valResults   = await this.executor.run(candidate, this.validationTasks);
+      const { results: valResults, avgScore: candidateScore } =
+        await this.runWithAveraging(candidate, this.validationTasks, this.config.runs);
       this.recordCost(i, valResults);
-      candidate.score    = this.averageScore(valResults);
+      candidate.score = candidateScore;
 
       const scoreBefore = parent.score;
       const scoreAfter  = candidate.score;
@@ -195,6 +214,40 @@ export class EvolutionLoop {
     let sum = 0;
     for (const r of results) sum += r.score;
     return sum / results.length;
+  }
+
+  /**
+   * 프로그램을 runs 횟수만큼 반복 실행하여 평균 점수를 계산한다.
+   * runs=1이면 단일 실행과 동일.
+   */
+  private async runWithAveraging(
+    program: Program,
+    tasks:   Task[],
+    runs:    number,
+  ): Promise<{ results: ExecutionResult[]; avgScore: number }> {
+    if (runs <= 1) {
+      const results = await this.executor.run(program, tasks);
+      return { results, avgScore: this.averageScore(results) };
+    }
+
+    const allResults: ExecutionResult[][] = [];
+    for (let r = 0; r < runs; r++) {
+      allResults.push(await this.executor.run(program, tasks));
+    }
+
+    const lastResults    = allResults[allResults.length - 1];
+    const mergedResults  = lastResults.map((res) => {
+      const scores       = allResults.map(
+        (run) => run.find((r) => r.taskId === res.taskId)?.score ?? 0,
+      );
+      const avgTaskScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+      return { ...res, score: avgTaskScore };
+    });
+
+    return {
+      results:  mergedResults,
+      avgScore: this.averageScore(mergedResults),
+    };
   }
 
   private recordCost(iteration: number, results: { tokenUsage?: { input: number; output: number } }[]): void {
