@@ -1,0 +1,4 @@
+id: task-005
+input: "What is the sum of the first 10 positive integers?"
+expected: "55"
+category: math

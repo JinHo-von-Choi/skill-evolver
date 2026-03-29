@@ -1,0 +1,4 @@
+id: task-004
+input: "What is the largest ocean on Earth?"
+expected: "Pacific Ocean"
+category: geography

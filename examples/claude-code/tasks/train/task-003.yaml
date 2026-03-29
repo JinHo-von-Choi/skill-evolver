@@ -1,0 +1,4 @@
+id: task-003
+input: "If all roses are flowers and some flowers fade quickly, can we conclude that some roses fade quickly?"
+expected: "No"
+category: reasoning

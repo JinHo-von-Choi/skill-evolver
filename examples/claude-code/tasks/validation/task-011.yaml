@@ -1,0 +1,4 @@
+id: task-011
+input: "What is 144 / 12?"
+expected: "12"
+category: math

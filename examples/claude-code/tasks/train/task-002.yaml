@@ -1,0 +1,4 @@
+id: task-002
+input: "What is 17 * 23?"
+expected: "391"
+category: math

@@ -1,0 +1,4 @@
+id: task-001
+input: "What is the capital of South Korea?"
+expected: "Seoul"
+category: geography
