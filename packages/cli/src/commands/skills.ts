@@ -11,6 +11,15 @@ import { Command } from "commander";
 import { CrossModelTester } from "@nerdvana/evolver-core";
 import type { Executor, Skill } from "@nerdvana/evolver-core";
 
+const DEFAULT_TEST_ADAPTER_CONFIG = {
+  name:        "",
+  command:     "claude",
+  skillsPath:  ".claude/skills",
+  skillFormat: "markdown" as const,
+  timeout:     60_000,
+  concurrency: 3,
+};
+
 interface SkillInfo {
   name:    string;
   trigger: string;
@@ -107,15 +116,28 @@ function makeExportCommand(defaultDir: string): Command {
 async function resolveTestAdapter(name: string): Promise<Executor> {
   if (name === "claude-code") {
     const mod = await import("@nerdvana/evolver-adapter-claude-code");
-    return new mod.ClaudeCodeExecutor();
+    return new mod.ClaudeCodeExecutor({
+      ...DEFAULT_TEST_ADAPTER_CONFIG,
+      name:    "claude-code",
+      command: "claude",
+    });
   }
   if (name === "cursor") {
     const mod = await import("@nerdvana/evolver-adapter-cursor");
-    return new mod.CursorExecutor();
+    return new mod.CursorExecutor({
+      ...DEFAULT_TEST_ADAPTER_CONFIG,
+      name:       "cursor",
+      command:    "cursor",
+      skillsPath: ".cursor/rules",
+    });
   }
   if (name === "codex") {
     const mod = await import("@nerdvana/evolver-adapter-codex");
-    return new mod.CodexExecutor();
+    return new mod.CodexExecutor({
+      ...DEFAULT_TEST_ADAPTER_CONFIG,
+      name:    "codex",
+      command: "codex",
+    });
   }
   throw new Error(`Unknown adapter: ${name}. Available: claude-code, cursor, codex`);
 }
