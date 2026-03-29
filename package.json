@@ -2,6 +2,7 @@
   "name": "evolver",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.29.3",
   "type": "module",
   "scripts": {
     "build": "turbo build",
@@ -12,5 +13,10 @@
   "devDependencies": {
     "turbo": "^2.5.0",
     "typescript": "^5.8.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }
