@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { SkillMaterializer } from "../src/skill-materializer.js";
 import { META_SKILL } from "../src/meta-skill.js";
-import type { SkillProposal, Skill } from "@evolver/core";
+import type { SkillProposal, Skill } from "@nerdvana/evolver-core";
 
 /* ------------------------------------------------------------------ */
 /*  Mock Anthropic SDK                                                 */

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { join }   from "node:path";
 import { tmpdir } from "node:os";
 
-import type { AdapterConfig, Program, Task } from "@evolver/core";
+import type { AdapterConfig, Program, Task } from "@nerdvana/evolver-core";
 
 /** child_process mock */
 vi.mock("node:child_process", () => ({

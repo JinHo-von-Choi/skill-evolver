@@ -5,23 +5,23 @@
  */
 
 import { Command }        from "commander";
-import { EvolutionLoop }  from "@evolver/core";
-import { LlmProposer }    from "@evolver/proposer";
-import type { EvolutionConfig, Executor, SkillBuilder, Plugin } from "@evolver/core";
+import { EvolutionLoop }  from "@nerdvana/evolver-core";
+import { LlmProposer }    from "@nerdvana/evolver-proposer";
+import type { EvolutionConfig, Executor, SkillBuilder, Plugin } from "@nerdvana/evolver-core";
 import { loadConfig, loadTasks }    from "../task-loader.js";
 import { saveState }                from "../state.js";
 
 async function resolveAdapter(name: string): Promise<Executor> {
   if (name === "claude-code") {
-    const mod = await import("@evolver/adapter-claude-code");
+    const mod = await import("@nerdvana/evolver-adapter-claude-code");
     return new mod.ClaudeCodeExecutor();
   }
   if (name === "cursor") {
-    const mod = await import("@evolver/adapter-cursor");
+    const mod = await import("@nerdvana/evolver-adapter-cursor");
     return new mod.CursorExecutor();
   }
   if (name === "codex") {
-    const mod = await import("@evolver/adapter-codex");
+    const mod = await import("@nerdvana/evolver-adapter-codex");
     return new mod.CodexExecutor();
   }
   throw new Error(`Unknown adapter: ${name}. Available: claude-code, cursor, codex`);
@@ -34,7 +34,7 @@ async function resolvePlugins(opts: { plugin?: string; mementoUrl?: string; meme
     if (!opts.mementoUrl || !opts.mementoKey) {
       throw new Error("--memento-url and --memento-key are required when using --plugin memento");
     }
-    const mod = await import("@evolver/plugin-memento");
+    const mod = await import("@nerdvana/evolver-plugin-memento");
     const client = new mod.MementoClient({ url: opts.mementoUrl, accessKey: opts.mementoKey });
     plugins.push(new mod.MementoPlugin(client));
   }
@@ -43,7 +43,7 @@ async function resolvePlugins(opts: { plugin?: string; mementoUrl?: string; meme
 }
 
 async function resolveSkillBuilder(model?: string): Promise<SkillBuilder> {
-  const mod = await import("@evolver/skill-builder");
+  const mod = await import("@nerdvana/evolver-skill-builder");
   return new mod.SkillMaterializer(model ? { model } : undefined);
 }
 

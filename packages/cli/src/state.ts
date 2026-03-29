@@ -4,7 +4,7 @@
 
 import fs   from "node:fs";
 import path from "node:path";
-import type { EvolutionReport } from "@evolver/core";
+import type { EvolutionReport } from "@nerdvana/evolver-core";
 
 const STATE_DIR  = ".evolver";
 const STATE_FILE = "state.json";

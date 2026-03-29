@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { Skill }           from "@evolver/core";
+import type { Skill }           from "@nerdvana/evolver-core";
 import { SkillConverter }       from "../src/skill-converter.js";
 
 describe("SkillConverter", () => {

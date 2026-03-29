@@ -1,5 +1,5 @@
 {
-  "name": "@evolver/cli",
+  "name": "@nerdvana/evolver-cli",
   "version": "0.2.0",
   "type": "module",
   "bin": {
@@ -13,13 +13,13 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@evolver/core": "workspace:*",
-    "@evolver/proposer": "workspace:*",
-    "@evolver/skill-builder": "workspace:*",
-    "@evolver/adapter-claude-code": "workspace:*",
-    "@evolver/adapter-cursor": "workspace:*",
-    "@evolver/adapter-codex": "workspace:*",
-    "@evolver/plugin-memento": "workspace:*",
+    "@nerdvana/evolver-core": "workspace:*",
+    "@nerdvana/evolver-proposer": "workspace:*",
+    "@nerdvana/evolver-skill-builder": "workspace:*",
+    "@nerdvana/evolver-adapter-claude-code": "workspace:*",
+    "@nerdvana/evolver-adapter-cursor": "workspace:*",
+    "@nerdvana/evolver-adapter-codex": "workspace:*",
+    "@nerdvana/evolver-plugin-memento": "workspace:*",
     "commander": "^13.1.0",
     "yaml": "^2.7.0"
   },
@@ -27,5 +27,12 @@
     "@types/node": "^22.0.0",
     "tsup": "^8.4.0",
     "vitest": "^3.1.0"
-  }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
 }

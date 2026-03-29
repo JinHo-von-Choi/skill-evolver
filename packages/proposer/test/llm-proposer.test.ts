@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { Failure, FeedbackEntry, SkillProposal } from "@evolver/core";
+import type { Failure, FeedbackEntry, SkillProposal } from "@nerdvana/evolver-core";
 
 const VALID_PROPOSAL: SkillProposal = {
   action:      "create",

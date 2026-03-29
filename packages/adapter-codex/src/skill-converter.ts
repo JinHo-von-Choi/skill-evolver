@@ -5,7 +5,7 @@
  * 여러 스킬을 하나의 AGENTS.md 파일로 병합할 수 있다.
  */
 
-import type { Skill } from "@evolver/core";
+import type { Skill } from "@nerdvana/evolver-core";
 
 export class SkillConverter {
   /**

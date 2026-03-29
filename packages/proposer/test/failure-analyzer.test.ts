@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { groupByPattern } from "../src/failure-analyzer.js";
-import type { Failure } from "@evolver/core";
+import type { Failure } from "@nerdvana/evolver-core";
 
 function makeFail(overrides: Partial<{
   taskId: string; category: string; error: string; score: number;

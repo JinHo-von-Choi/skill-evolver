@@ -12,7 +12,7 @@ import type {
   PluginContext,
   Proposer,
   SkillProposal,
-} from "@evolver/core";
+} from "@nerdvana/evolver-core";
 import { groupByPattern } from "./failure-analyzer.js";
 
 export interface LlmProposerConfig {

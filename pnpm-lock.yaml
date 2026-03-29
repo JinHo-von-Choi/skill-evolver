@@ -17,7 +17,7 @@ importers:
 
   packages/adapter-claude-code:
     dependencies:
-      '@evolver/core':
+      '@nerdvana/evolver-core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -33,7 +33,7 @@ importers:
 
   packages/adapter-codex:
     dependencies:
-      '@evolver/core':
+      '@nerdvana/evolver-core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -49,7 +49,7 @@ importers:
 
   packages/adapter-cursor:
     dependencies:
-      '@evolver/core':
+      '@nerdvana/evolver-core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -65,25 +65,25 @@ importers:
 
   packages/cli:
     dependencies:
-      '@evolver/adapter-claude-code':
+      '@nerdvana/evolver-adapter-claude-code':
         specifier: workspace:*
         version: link:../adapter-claude-code
-      '@evolver/adapter-codex':
+      '@nerdvana/evolver-adapter-codex':
         specifier: workspace:*
         version: link:../adapter-codex
-      '@evolver/adapter-cursor':
+      '@nerdvana/evolver-adapter-cursor':
         specifier: workspace:*
         version: link:../adapter-cursor
-      '@evolver/core':
+      '@nerdvana/evolver-core':
         specifier: workspace:*
         version: link:../core
-      '@evolver/plugin-memento':
+      '@nerdvana/evolver-plugin-memento':
         specifier: workspace:*
         version: link:../plugin-memento
-      '@evolver/proposer':
+      '@nerdvana/evolver-proposer':
         specifier: workspace:*
         version: link:../proposer
-      '@evolver/skill-builder':
+      '@nerdvana/evolver-skill-builder':
         specifier: workspace:*
         version: link:../skill-builder
       commander:
@@ -114,7 +114,7 @@ importers:
 
   packages/plugin-memento:
     dependencies:
-      '@evolver/core':
+      '@nerdvana/evolver-core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -130,7 +130,7 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.39.0
         version: 0.39.0
-      '@evolver/core':
+      '@nerdvana/evolver-core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -146,7 +146,7 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.39.0
         version: 0.39.0
-      '@evolver/core':
+      '@nerdvana/evolver-core':
         specifier: workspace:*
         version: link:../core
     devDependencies:

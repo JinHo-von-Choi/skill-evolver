@@ -14,7 +14,7 @@ import type {
   SkillProposal,
   EvaluationResult,
   Program,
-} from "@evolver/core";
+} from "@nerdvana/evolver-core";
 
 import type { MementoClient } from "./memento-client.js";
 

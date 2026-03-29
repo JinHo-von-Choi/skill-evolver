@@ -8,8 +8,8 @@
 import fs   from "node:fs";
 import path from "node:path";
 import { Command } from "commander";
-import { CrossModelTester } from "@evolver/core";
-import type { Executor, Skill } from "@evolver/core";
+import { CrossModelTester } from "@nerdvana/evolver-core";
+import type { Executor, Skill } from "@nerdvana/evolver-core";
 
 interface SkillInfo {
   name:    string;
@@ -106,15 +106,15 @@ function makeExportCommand(defaultDir: string): Command {
 
 async function resolveTestAdapter(name: string): Promise<Executor> {
   if (name === "claude-code") {
-    const mod = await import("@evolver/adapter-claude-code");
+    const mod = await import("@nerdvana/evolver-adapter-claude-code");
     return new mod.ClaudeCodeExecutor();
   }
   if (name === "cursor") {
-    const mod = await import("@evolver/adapter-cursor");
+    const mod = await import("@nerdvana/evolver-adapter-cursor");
     return new mod.CursorExecutor();
   }
   if (name === "codex") {
-    const mod = await import("@evolver/adapter-codex");
+    const mod = await import("@nerdvana/evolver-adapter-codex");
     return new mod.CodexExecutor();
   }
   throw new Error(`Unknown adapter: ${name}. Available: claude-code, cursor, codex`);

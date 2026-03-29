@@ -4,7 +4,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import type { Skill, SkillBuilder, SkillProposal, PluginContext } from "@evolver/core";
+import type { Skill, SkillBuilder, SkillProposal, PluginContext } from "@nerdvana/evolver-core";
 import { META_SKILL } from "./meta-skill.js";
 
 const DEFAULT_MODEL  = "claude-haiku-4-5";

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MementoPlugin } from "../src/memento-plugin.js";
 import type { MementoClient } from "../src/memento-client.js";
-import type { Failure, SkillProposal, EvaluationResult, Program } from "@evolver/core";
+import type { Failure, SkillProposal, EvaluationResult, Program } from "@nerdvana/evolver-core";
 
 function createMockClient(): MementoClient {
   return {

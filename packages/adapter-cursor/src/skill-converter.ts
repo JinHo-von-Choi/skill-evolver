@@ -2,7 +2,7 @@
  * SKILL.md 형식을 Cursor의 .cursorrules + rules/*.md 형식으로 변환한다.
  */
 
-import type { Skill } from "@evolver/core";
+import type { Skill } from "@nerdvana/evolver-core";
 
 export interface CursorRulesOutput {
   cursorrules: string;

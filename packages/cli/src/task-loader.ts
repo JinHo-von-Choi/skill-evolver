@@ -8,7 +8,7 @@
 import fs   from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
-import type { Task, ScorerType } from "@evolver/core";
+import type { Task, ScorerType } from "@nerdvana/evolver-core";
 
 export interface TaskConfig {
   scorer?:     ScorerType;

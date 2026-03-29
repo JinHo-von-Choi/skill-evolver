@@ -5,7 +5,7 @@
  * 각 그룹의 패턴을 요약 텍스트로 생성한다.
  */
 
-import type { Failure } from "@evolver/core";
+import type { Failure } from "@nerdvana/evolver-core";
 
 export interface FailureGroup {
   pattern:  string;

@@ -1,5 +1,5 @@
 /**
- * @evolver/core 타입 정의
+ * @nerdvana/evolver-core 타입 정의
  *
  * EvoSkill 논문 기반 범용 LLM 에이전트 스킬 진화 프레임워크의 핵심 인터페이스.
  */

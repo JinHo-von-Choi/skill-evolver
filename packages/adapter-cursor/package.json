@@ -1,5 +1,5 @@
 {
-  "name": "@evolver/adapter-cursor",
+  "name": "@nerdvana/evolver-adapter-cursor",
   "version": "0.2.0",
   "type": "module",
   "main": "dist/index.js",
@@ -10,11 +10,18 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@evolver/core": "workspace:*"
+    "@nerdvana/evolver-core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "tsup": "^8.4.0",
     "vitest": "^3.1.0"
-  }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
 }

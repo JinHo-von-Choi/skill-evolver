@@ -18,7 +18,7 @@ import type {
   Program,
   ScorerType,
   Task,
-} from "@evolver/core";
+} from "@nerdvana/evolver-core";
 
 import { ResultParser } from "./result-parser.js";
 

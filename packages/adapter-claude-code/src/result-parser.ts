@@ -1,4 +1,4 @@
-import type { ExecutionResult } from "@evolver/core";
+import type { ExecutionResult } from "@nerdvana/evolver-core";
 
 /**
  * Claude Code CLI의 stdout/stderr를 ExecutionResult로 변환한다.
