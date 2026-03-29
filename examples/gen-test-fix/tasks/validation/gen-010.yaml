@@ -1,0 +1,21 @@
+id: gen-010
+category: gen-test
+input: |
+  다음 Python 함수에 대한 pytest 테스트 코드를 작성해라.
+  경계값(0, 음수, 소수)과 예외 케이스를 포함할 것.
+
+  ```python
+  def is_prime(n: int) -> bool:
+      """n이 소수이면 True. n < 2이면 False."""
+      if n < 2:
+          return False
+      for i in range(2, int(n ** 0.5) + 1):
+          if n % i == 0:
+              return False
+      return True
+  ```
+expected: pytest_pass
+scorer_hint: >
+  에이전트 출력에서 코드블록 추출 → test_gen010.py 저장.
+  is_prime 함수 인라인 정의 후 pytest 실행.
+  exit code 0이면 1.0.

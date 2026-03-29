@@ -1,0 +1,18 @@
+id: gen-002
+category: gen-test
+input: |
+  다음 Python 함수에 대한 pytest 테스트 코드를 작성해라.
+  정상 케이스 3개 이상, 예외 케이스 2개 이상 포함할 것.
+
+  ```python
+  def divide(a: float, b: float) -> float:
+      """a를 b로 나눈다. b가 0이면 ZeroDivisionError."""
+      if b == 0:
+          raise ZeroDivisionError("cannot divide by zero")
+      return a / b
+  ```
+expected: pytest_pass
+scorer_hint: >
+  에이전트 출력에서 코드블록 추출 → test_gen002.py 저장.
+  divide 함수 인라인 정의 후 pytest 실행.
+  exit code 0이면 1.0.

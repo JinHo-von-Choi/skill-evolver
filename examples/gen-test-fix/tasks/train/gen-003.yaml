@@ -1,0 +1,35 @@
+id: gen-003
+category: gen-test
+input: |
+  다음 Python 클래스에 대한 pytest 테스트 코드를 작성해라.
+  각 메서드의 정상/예외 케이스를 모두 커버할 것.
+
+  ```python
+  class Stack:
+      def __init__(self):
+          self._items = []
+
+      def push(self, item) -> None:
+          self._items.append(item)
+
+      def pop(self):
+          if not self._items:
+              raise IndexError("pop from empty stack")
+          return self._items.pop()
+
+      def peek(self):
+          if not self._items:
+              raise IndexError("peek from empty stack")
+          return self._items[-1]
+
+      def is_empty(self) -> bool:
+          return len(self._items) == 0
+
+      def size(self) -> int:
+          return len(self._items)
+  ```
+expected: pytest_pass
+scorer_hint: >
+  에이전트 출력에서 코드블록 추출 → test_gen003.py 저장.
+  Stack 클래스 인라인 정의 후 pytest 실행.
+  exit code 0이면 1.0.

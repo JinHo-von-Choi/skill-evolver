@@ -1,0 +1,18 @@
+id: gen-001
+category: gen-test
+input: |
+  다음 Python 함수에 대한 pytest 테스트 코드를 작성해라.
+  엣지케이스(빈 리스트, 음수, 중복값)를 반드시 포함할 것.
+
+  ```python
+  def find_max(nums: list[int]) -> int:
+      """리스트에서 최댓값을 반환한다. 빈 리스트면 ValueError."""
+      if not nums:
+          raise ValueError("empty list")
+      return max(nums)
+  ```
+expected: pytest_pass
+scorer_hint: >
+  에이전트 출력에서 코드블록을 추출하여 test_gen001.py로 저장.
+  find_max 함수를 같은 파일에 인라인 정의 후 pytest 실행.
+  exit code 0이면 1.0, 아니면 0.0.

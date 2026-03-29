@@ -1,0 +1,27 @@
+id: fix-010
+category: fix
+input: |
+  아래 코드는 테스트를 통과하지 못한다. 버그를 찾아 수정해라.
+  수정된 함수 코드만 출력할 것.
+
+  ```python
+  def two_sum(nums: list[int], target: int) -> list[int]:
+      """합이 target인 두 수의 인덱스를 반환. 항상 정답이 존재함."""
+      for i in range(len(nums)):
+          for j in range(len(nums)):  # i+1이 아닌 0부터 시작 (자기 자신과 쌍 가능)
+              if nums[i] + nums[j] == target:
+                  return [i, j]
+      return []
+  ```
+
+  실패하는 테스트:
+  ```python
+  assert two_sum([2, 7, 11, 15], 9) == [0, 1]
+  assert two_sum([3, 2, 4], 6) == [1, 2]
+  assert two_sum([3, 3], 6) == [0, 1]
+  ```
+expected: pytest_pass
+scorer_hint: >
+  에이전트 출력에서 수정된 two_sum 함수 추출.
+  위 assert를 포함한 테스트 파일 생성 후 pytest 실행.
+  exit code 0이면 1.0.

@@ -1,0 +1,29 @@
+id: fix-002
+category: fix
+input: |
+  아래 코드는 테스트를 통과하지 못한다. 버그를 찾아 수정해라.
+  수정된 함수 코드만 출력할 것.
+
+  ```python
+  def flatten(nested: list) -> list:
+      """중첩 리스트를 1차원으로 펼친다."""
+      result = []
+      for item in nested:
+          if isinstance(item, list):
+              result.append(flatten(item))  # extend가 아닌 append 사용
+          else:
+              result.append(item)
+      return result
+  ```
+
+  실패하는 테스트:
+  ```python
+  assert flatten([1, [2, 3], [4, [5, 6]]]) == [1, 2, 3, 4, 5, 6]
+  assert flatten([]) == []
+  assert flatten([[1], [2], [3]]) == [1, 2, 3]
+  ```
+expected: pytest_pass
+scorer_hint: >
+  에이전트 출력에서 수정된 flatten 함수 추출.
+  위 3개 assert를 포함한 테스트 파일 생성 후 pytest 실행.
+  exit code 0이면 1.0.

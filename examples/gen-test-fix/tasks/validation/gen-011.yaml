@@ -1,0 +1,25 @@
+id: gen-011
+category: gen-test
+input: |
+  다음 Python 함수에 대한 pytest 테스트 코드를 작성해라.
+  정상/예외/경계값 케이스를 모두 포함할 것.
+
+  ```python
+  def binary_search(arr: list[int], target: int) -> int:
+      """정렬된 리스트에서 target의 인덱스를 반환. 없으면 -1."""
+      left, right = 0, len(arr) - 1
+      while left <= right:
+          mid = (left + right) // 2
+          if arr[mid] == target:
+              return mid
+          elif arr[mid] < target:
+              left = mid + 1
+          else:
+              right = mid - 1
+      return -1
+  ```
+expected: pytest_pass
+scorer_hint: >
+  에이전트 출력에서 코드블록 추출 → test_gen011.py 저장.
+  binary_search 함수 인라인 정의 후 pytest 실행.
+  exit code 0이면 1.0.

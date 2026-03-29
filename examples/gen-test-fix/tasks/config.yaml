@@ -1,0 +1,7 @@
+scorer: custom
+scorer_script: scorer/run.py
+categories: [gen-test, fix]
+description: >
+  gen-test: 주어진 Python 함수에 대한 pytest 테스트 코드 생성.
+  fix: 버그 있는 Python 코드를 수정하여 테스트를 통과시킴.
+  두 카테고리 모두 실제 코드 실행 결과(pytest exit code)로 채점.
