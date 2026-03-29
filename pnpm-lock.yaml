@@ -31,6 +31,38 @@ importers:
         specifier: ^3.1.0
         version: 3.2.4(@types/node@22.19.15)(yaml@2.8.3)
 
+  packages/adapter-codex:
+    dependencies:
+      '@evolver/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.15
+      tsup:
+        specifier: ^8.4.0
+        version: 8.5.1(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.3)
+      vitest:
+        specifier: ^3.1.0
+        version: 3.2.4(@types/node@22.19.15)(yaml@2.8.3)
+
+  packages/adapter-cursor:
+    dependencies:
+      '@evolver/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.15
+      tsup:
+        specifier: ^8.4.0
+        version: 8.5.1(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.3)
+      vitest:
+        specifier: ^3.1.0
+        version: 3.2.4(@types/node@22.19.15)(yaml@2.8.3)
+
   packages/cli:
     dependencies:
       '@evolver/adapter-claude-code':
@@ -39,6 +71,9 @@ importers:
       '@evolver/core':
         specifier: workspace:*
         version: link:../core
+      '@evolver/plugin-memento':
+        specifier: workspace:*
+        version: link:../plugin-memento
       '@evolver/proposer':
         specifier: workspace:*
         version: link:../proposer
@@ -63,6 +98,19 @@ importers:
         version: 3.2.4(@types/node@22.19.15)(yaml@2.8.3)
 
   packages/core:
+    devDependencies:
+      tsup:
+        specifier: ^8.4.0
+        version: 8.5.1(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.3)
+      vitest:
+        specifier: ^3.1.0
+        version: 3.2.4(@types/node@22.19.15)(yaml@2.8.3)
+
+  packages/plugin-memento:
+    dependencies:
+      '@evolver/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       tsup:
         specifier: ^8.4.0

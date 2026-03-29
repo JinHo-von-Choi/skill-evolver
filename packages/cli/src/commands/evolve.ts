@@ -7,7 +7,7 @@
 import { Command }        from "commander";
 import { EvolutionLoop }  from "@evolver/core";
 import { LlmProposer }    from "@evolver/proposer";
-import type { EvolutionConfig, Executor, SkillBuilder } from "@evolver/core";
+import type { EvolutionConfig, Executor, SkillBuilder, Plugin } from "@evolver/core";
 import { loadConfig, loadTasks }    from "../task-loader.js";
 import { saveState }                from "../state.js";
 
@@ -17,6 +17,21 @@ async function resolveAdapter(name: string): Promise<Executor> {
     return new mod.ClaudeCodeExecutor();
   }
   throw new Error(`Unknown adapter: ${name}. Available: claude-code`);
+}
+
+async function resolvePlugins(opts: { plugin?: string; mementoUrl?: string; mementoKey?: string }): Promise<Plugin[]> {
+  const plugins: Plugin[] = [];
+
+  if (opts.plugin === "memento") {
+    if (!opts.mementoUrl || !opts.mementoKey) {
+      throw new Error("--memento-url and --memento-key are required when using --plugin memento");
+    }
+    const mod = await import("@evolver/plugin-memento");
+    const client = new mod.MementoClient({ url: opts.mementoUrl, accessKey: opts.mementoKey });
+    plugins.push(new mod.MementoPlugin(client));
+  }
+
+  return plugins;
 }
 
 async function resolveSkillBuilder(model?: string): Promise<SkillBuilder> {
@@ -37,6 +52,9 @@ export function makeEvolveCommand(): Command {
     .option("--frontier-capacity <n>",           "Pareto frontier capacity", "3")
     .option("--max-iterations <n>",              "Max evolution iterations", "10")
     .option("--failure-threshold <n>",           "Score threshold for failure", "0.5")
+    .option("--plugin <name>",                   "Plugin to load (e.g. memento)")
+    .option("--memento-url <url>",               "Memento MCP server URL")
+    .option("--memento-key <key>",               "Memento MCP access key")
     .action(async (opts) => {
       const taskConfig   = loadConfig(opts.taskDir);
       const trainTasks   = loadTasks(opts.taskDir, "train", taskConfig.scorer);
@@ -52,6 +70,7 @@ export function makeEvolveCommand(): Command {
       const executor     = await resolveAdapter(opts.adapter);
       const proposer     = new LlmProposer({ model: opts.proposerModel });
       const skillBuilder = await resolveSkillBuilder(opts.builderModel);
+      const plugins      = await resolvePlugins(opts);
 
       const config: EvolutionConfig = {
         maxIterations:    parseInt(opts.maxIterations, 10),
@@ -73,6 +92,7 @@ export function makeEvolveCommand(): Command {
         trainTasks,
         validationTasks: valTasks,
         config,
+        plugins,
       });
 
       console.log("Starting evolution loop...");

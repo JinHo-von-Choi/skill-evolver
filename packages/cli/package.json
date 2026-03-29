@@ -17,6 +17,7 @@
     "@evolver/proposer": "workspace:*",
     "@evolver/skill-builder": "workspace:*",
     "@evolver/adapter-claude-code": "workspace:*",
+    "@evolver/plugin-memento": "workspace:*",
     "commander": "^13.1.0",
     "yaml": "^2.7.0"
   },
