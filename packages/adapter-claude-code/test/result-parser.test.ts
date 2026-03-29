@@ -15,7 +15,7 @@ describe("ResultParser", () => {
   it("tokenUsage가 포함된 JSON을 파싱한다", () => {
     const stdout = JSON.stringify({
       result: "answer",
-      usage:  { input: 500, output: 200 },
+      usage:  { input_tokens: 500, output_tokens: 200 },
     });
     const result = ResultParser.parse("t2", stdout, "", 50);
 
@@ -52,5 +52,23 @@ describe("ResultParser", () => {
     const result = ResultParser.parse("t6", stdout, "", 15);
 
     expect(result.output).toEqual({ answer: 42 });
+  });
+
+  it("실제 claude CLI JSON 형식에서 tokenUsage를 추출한다", () => {
+    const claudeOutput = JSON.stringify({
+      type: "result",
+      result: "hello",
+      total_cost_usd: 0.00123,
+      usage: {
+        input_tokens: 10,
+        output_tokens: 5,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+      },
+    });
+
+    const r = ResultParser.parse("t1", claudeOutput, "", 100);
+    expect(r.output).toBe("hello");
+    expect(r.tokenUsage).toEqual({ input: 10, output: 5 });
   });
 });

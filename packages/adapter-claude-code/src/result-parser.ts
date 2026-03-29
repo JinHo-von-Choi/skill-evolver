@@ -47,10 +47,10 @@ export class ResultParser {
       const obj = output as Record<string, unknown>;
       if (obj.usage && typeof obj.usage === "object") {
         const usage = obj.usage as Record<string, unknown>;
-        if (typeof usage.input === "number" && typeof usage.output === "number") {
+        if (typeof usage.input_tokens === "number" && typeof usage.output_tokens === "number") {
           result.tokenUsage = {
-            input:  usage.input  as number,
-            output: usage.output as number,
+            input:  usage.input_tokens  as number,
+            output: usage.output_tokens as number,
           };
         }
       }

@@ -121,7 +121,9 @@ describe("ClaudeCodeExecutor", () => {
     expect(args).toContain("--print");
     expect(args).toContain("--output-format");
     expect(args).toContain("json");
-    expect(args).toContain("--skill-path");
+    expect(args).toContain("--plugin-dir");
+    expect(args).toContain("--permission-mode");
+    expect(args).toContain("bypassPermissions");
   });
 
   it("exact-match scorer로 정확히 채점한다", async () => {
