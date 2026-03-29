@@ -68,6 +68,12 @@ importers:
       '@evolver/adapter-claude-code':
         specifier: workspace:*
         version: link:../adapter-claude-code
+      '@evolver/adapter-codex':
+        specifier: workspace:*
+        version: link:../adapter-codex
+      '@evolver/adapter-cursor':
+        specifier: workspace:*
+        version: link:../adapter-cursor
       '@evolver/core':
         specifier: workspace:*
         version: link:../core

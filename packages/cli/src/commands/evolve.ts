@@ -16,7 +16,15 @@ async function resolveAdapter(name: string): Promise<Executor> {
     const mod = await import("@evolver/adapter-claude-code");
     return new mod.ClaudeCodeExecutor();
   }
-  throw new Error(`Unknown adapter: ${name}. Available: claude-code`);
+  if (name === "cursor") {
+    const mod = await import("@evolver/adapter-cursor");
+    return new mod.CursorExecutor();
+  }
+  if (name === "codex") {
+    const mod = await import("@evolver/adapter-codex");
+    return new mod.CodexExecutor();
+  }
+  throw new Error(`Unknown adapter: ${name}. Available: claude-code, cursor, codex`);
 }
 
 async function resolvePlugins(opts: { plugin?: string; mementoUrl?: string; mementoKey?: string }): Promise<Plugin[]> {

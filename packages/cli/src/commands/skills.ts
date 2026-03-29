@@ -8,6 +8,8 @@
 import fs   from "node:fs";
 import path from "node:path";
 import { Command } from "commander";
+import { CrossModelTester } from "@evolver/core";
+import type { Executor, Skill } from "@evolver/core";
 
 interface SkillInfo {
   name:    string;
@@ -102,11 +104,86 @@ function makeExportCommand(defaultDir: string): Command {
     });
 }
 
+async function resolveTestAdapter(name: string): Promise<Executor> {
+  if (name === "claude-code") {
+    const mod = await import("@evolver/adapter-claude-code");
+    return new mod.ClaudeCodeExecutor();
+  }
+  if (name === "cursor") {
+    const mod = await import("@evolver/adapter-cursor");
+    return new mod.CursorExecutor();
+  }
+  if (name === "codex") {
+    const mod = await import("@evolver/adapter-codex");
+    return new mod.CodexExecutor();
+  }
+  throw new Error(`Unknown adapter: ${name}. Available: claude-code, cursor, codex`);
+}
+
+function loadSkillsFromDir(skillsDir: string): Skill[] {
+  const infos = scanSkills(skillsDir);
+  return infos.map((info) => {
+    const skillMd = path.join(skillsDir, info.name, "SKILL.md");
+    const content = fs.readFileSync(skillMd, "utf-8");
+    return { name: info.name, trigger: info.trigger, content };
+  });
+}
+
+function makeTestCommand(defaultDir: string): Command {
+  return new Command("test")
+    .description("Test skills across different model adapters")
+    .option("--skills-dir <path>",   "Skills directory", defaultDir)
+    .option("--task-dir <path>",     "Tasks directory for cross-model test")
+    .option("--cross-model",         "Run cross-model transfer test")
+    .option("--source <adapter>",    "Source adapter name", "claude-code")
+    .option("--target <adapters>",   "Comma-separated target adapter names", "cursor,codex")
+    .action(async (opts) => {
+      if (!opts.crossModel) {
+        console.log("Use --cross-model to run transfer tests.");
+        return;
+      }
+
+      if (!opts.taskDir) {
+        console.error("Error: --task-dir is required for cross-model test");
+        process.exit(1);
+      }
+
+      const { loadTasks, loadConfig } = await import("../task-loader.js");
+      const taskConfig = loadConfig(opts.taskDir);
+      const tasks      = loadTasks(opts.taskDir, "validation", taskConfig.scorer);
+
+      if (tasks.length === 0) {
+        console.error("Error: No validation tasks found in", opts.taskDir + "/validation/");
+        process.exit(1);
+      }
+
+      const skills         = loadSkillsFromDir(opts.skillsDir);
+      const sourceAdapter  = await resolveTestAdapter(opts.source);
+      const targetNames    = (opts.target as string).split(",").map((s: string) => s.trim());
+      const targetAdapters = await Promise.all(targetNames.map((n: string) => resolveTestAdapter(n)));
+
+      console.log(`Cross-model test: ${opts.source} -> ${targetNames.join(", ")}`);
+      console.log(`Skills: ${skills.map((s: Skill) => s.name).join(", ")}`);
+      console.log(`Tasks: ${tasks.length}\n`);
+
+      const tester = new CrossModelTester({ sourceAdapter, targetAdapters, tasks, skills });
+      const result = await tester.run();
+
+      console.log(`Source (${result.source.adapter}): ${result.source.score.toFixed(4)}`);
+      for (const t of result.targets) {
+        const delta = t.delta >= 0 ? `+${t.delta.toFixed(4)}` : t.delta.toFixed(4);
+        console.log(`Target (${t.adapter}): ${t.score.toFixed(4)} (${delta})`);
+      }
+      console.log(`\nTransfer rate: ${(result.transferRate * 100).toFixed(1)}%`);
+    });
+}
+
 export function makeSkillsCommand(): Command {
   const defaultDir = "./skills";
 
   return new Command("skills")
     .description("Manage discovered skills")
     .addCommand(makeListCommand(defaultDir))
-    .addCommand(makeExportCommand(defaultDir));
+    .addCommand(makeExportCommand(defaultDir))
+    .addCommand(makeTestCommand(defaultDir));
 }
