@@ -24,40 +24,9 @@ import type {
   ScorerType,
   Task,
 } from "@nerdvana/evolver-core";
+import { getScorer } from "@nerdvana/evolver-core";
 
 import { SkillConverter } from "./skill-converter.js";
-
-/* ------------------------------------------------------------------ */
-/*  Scorer 구현                                                        */
-/* ------------------------------------------------------------------ */
-
-type ScorerFn = (output: unknown, expected: unknown) => number;
-
-function exactMatch(output: unknown, expected: unknown): number {
-  if (output === expected) return 1;
-  try {
-    return JSON.stringify(output) === JSON.stringify(expected) ? 1 : 0;
-  } catch {
-    return 0;
-  }
-}
-
-function fuzzy(output: unknown, expected: unknown): number {
-  const outStr = String(output).toLowerCase();
-  const expStr = String(expected).toLowerCase();
-  if (outStr === expStr) return 1;
-  if (outStr.includes(expStr) || expStr.includes(outStr)) return 0.5;
-  return 0;
-}
-
-const SCORERS: Record<string, ScorerFn> = {
-  "exact-match": exactMatch,
-  "fuzzy":       fuzzy,
-};
-
-function getScorer(type: ScorerType = "exact-match"): ScorerFn {
-  return SCORERS[type] ?? exactMatch;
-}
 
 /* ------------------------------------------------------------------ */
 /*  스킬 배치 헬퍼                                                      */

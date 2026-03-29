@@ -6,7 +6,7 @@
  */
 
 import { execFile }   from "node:child_process";
-import { mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdir, writeFile, rm, mkdtemp } from "node:fs/promises";
 import { join }       from "node:path";
 import { tmpdir }     from "node:os";
 import { randomUUID } from "node:crypto";
@@ -19,40 +19,9 @@ import type {
   ScorerType,
   Task,
 } from "@nerdvana/evolver-core";
+import { getScorer } from "@nerdvana/evolver-core";
 
 import { ResultParser } from "./result-parser.js";
-
-/* ------------------------------------------------------------------ */
-/*  Scorer 구현                                                        */
-/* ------------------------------------------------------------------ */
-
-type ScorerFn = (output: unknown, expected: unknown) => number;
-
-function exactMatch(output: unknown, expected: unknown): number {
-  if (output === expected) return 1;
-  try {
-    return JSON.stringify(output) === JSON.stringify(expected) ? 1 : 0;
-  } catch {
-    return 0;
-  }
-}
-
-function fuzzy(output: unknown, expected: unknown): number {
-  const outStr = String(output).toLowerCase();
-  const expStr = String(expected).toLowerCase();
-  if (outStr === expStr) return 1;
-  if (outStr.includes(expStr) || expStr.includes(outStr)) return 0.5;
-  return 0;
-}
-
-const SCORERS: Record<string, ScorerFn> = {
-  "exact-match": exactMatch,
-  "fuzzy":       fuzzy,
-};
-
-function getScorer(type: ScorerType = "exact-match"): ScorerFn {
-  return SCORERS[type] ?? exactMatch;
-}
 
 /* ------------------------------------------------------------------ */
 /*  스킬 배치 헬퍼                                                      */
@@ -66,6 +35,39 @@ async function deploySkills(
   for (const skill of skills) {
     const filePath = join(targetDir, `${skill.name}.md`);
     await writeFile(filePath, skill.content, "utf-8");
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  커스텀 스코러 실행                                                   */
+/* ------------------------------------------------------------------ */
+
+async function runCustomScorer(
+  scriptPath: string,
+  task:       Task,
+  output:     string,
+): Promise<number> {
+  const tmpDir     = await mkdtemp(join(tmpdir(), "evolver-scorer-"));
+  const taskFile   = join(tmpDir, "task.json");
+  const outputFile = join(tmpDir, "output.txt");
+
+  try {
+    await writeFile(taskFile,   JSON.stringify(task), "utf-8");
+    await writeFile(outputFile, output,               "utf-8");
+
+    return new Promise((resolve) => {
+      execFile(
+        "python3",
+        [scriptPath, taskFile, outputFile],
+        { timeout: 30_000 },
+        (_err, stdout) => {
+          const match = stdout.match(/score:\s*([\d.]+)/);
+          resolve(match ? parseFloat(match[1]) : 0);
+        },
+      );
+    });
+  } finally {
+    await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
   }
 }
 
@@ -150,7 +152,8 @@ export class ClaudeCodeExecutor implements Executor {
     const args = [
       "--print",
       "--output-format", "json",
-      "--skill-path", skillDir,
+      "--plugin-dir",    skillDir,
+      "--permission-mode", "bypassPermissions",
       prompt,
     ];
 
@@ -160,8 +163,17 @@ export class ClaudeCodeExecutor implements Executor {
 
     const result = ResultParser.parse(task.id, stdout, stderr, durationMs);
 
-    const scorer   = getScorer(task.scorer);
-    result.score   = scorer(result.output, task.expected);
+    const taskExt = task as unknown as Record<string, unknown>;
+    if (task.scorer === "custom" && taskExt["scorerScript"]) {
+      result.score = await runCustomScorer(
+        String(taskExt["scorerScript"]),
+        task,
+        String(result.output ?? ""),
+      );
+    } else {
+      const scorer = getScorer(task.scorer);
+      result.score = scorer(result.output, task.expected);
+    }
 
     return result;
   }
