@@ -7,10 +7,14 @@ import type { Program, ParetoFrontierConfig } from "./types.js";
 export class ParetoFrontier {
   private programs:        Program[] = [];
   private roundRobinIndex: number    = 0;
-  private readonly capacity: number;
+  protected _capacity:     number;
 
-  constructor(private readonly config: ParetoFrontierConfig) {
-    this.capacity = config.capacity;
+  get capacity(): number {
+    return this._capacity;
+  }
+
+  constructor(protected readonly config: ParetoFrontierConfig) {
+    this._capacity = config.capacity;
   }
 
   /**

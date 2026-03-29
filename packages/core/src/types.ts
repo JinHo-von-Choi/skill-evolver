@@ -145,6 +145,18 @@ export interface ParetoFrontierConfig {
   selectionStrategy: "round-robin" | "tournament";
 }
 
+export interface AdaptiveFrontierConfig extends ParetoFrontierConfig {
+  adaptive:     boolean;
+  minCapacity:  number;
+  maxCapacity:  number;
+}
+
+export interface DiversityMetrics {
+  skillOverlapRate: number;
+  scoreVariance:    number;
+  avgGeneration:    number;
+}
+
 export interface EvolutionConfig {
   maxIterations:    number;
   epochs:           number;
@@ -182,4 +194,21 @@ export interface ConflictResult {
   existingSkill?: string;
   similarity?:    number;
   message:        string;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Cross-Model Testing                                                */
+/* ------------------------------------------------------------------ */
+
+export interface CrossModelTestConfig {
+  sourceAdapter:  Executor;
+  targetAdapters: Executor[];
+  tasks:          Task[];
+  skills:         Skill[];
+}
+
+export interface CrossModelResult {
+  source:       { adapter: string; score: number };
+  targets:      Array<{ adapter: string; score: number; delta: number }>;
+  transferRate: number;
 }
