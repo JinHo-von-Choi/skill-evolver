@@ -4,25 +4,36 @@
  * 태스크를 로드하고 EvolutionLoop를 실행한다.
  */
 
-import { Command }        from "commander";
-import { EvolutionLoop }  from "@nerdvana/evolver-core";
-import { LlmProposer }    from "@nerdvana/evolver-proposer";
-import type { EvolutionConfig, Executor, SkillBuilder, Plugin } from "@nerdvana/evolver-core";
+import path                       from "node:path";
+import { mkdir, writeFile }        from "node:fs/promises";
+import { Command }                 from "commander";
+import { EvolutionLoop }           from "@nerdvana/evolver-core";
+import { LlmProposer }             from "@nerdvana/evolver-proposer";
+import type { EvolutionConfig, Executor, SkillBuilder, Plugin, Program } from "@nerdvana/evolver-core";
 import { loadConfig, loadTasks }    from "../task-loader.js";
 import { saveState }                from "../state.js";
+
+const DEFAULT_ADAPTER_CONFIG = {
+  name:        "",
+  command:     "claude",
+  skillsPath:  ".claude/skills",
+  skillFormat: "markdown" as const,
+  timeout:     60_000,
+  concurrency: 3,
+};
 
 async function resolveAdapter(name: string): Promise<Executor> {
   if (name === "claude-code") {
     const mod = await import("@nerdvana/evolver-adapter-claude-code");
-    return new mod.ClaudeCodeExecutor();
+    return new mod.ClaudeCodeExecutor({ ...DEFAULT_ADAPTER_CONFIG, name: "claude-code", command: "claude" });
   }
   if (name === "cursor") {
     const mod = await import("@nerdvana/evolver-adapter-cursor");
-    return new mod.CursorExecutor();
+    return new mod.CursorExecutor({ ...DEFAULT_ADAPTER_CONFIG, name: "cursor", command: "cursor", skillsPath: ".cursor/rules" });
   }
   if (name === "codex") {
     const mod = await import("@nerdvana/evolver-adapter-codex");
-    return new mod.CodexExecutor();
+    return new mod.CodexExecutor({ ...DEFAULT_ADAPTER_CONFIG, name: "codex", command: "codex", skillsPath: "." });
   }
   throw new Error(`Unknown adapter: ${name}. Available: claude-code, cursor, codex`);
 }
@@ -64,9 +75,15 @@ export function makeEvolveCommand(): Command {
     .option("--memento-url <url>",               "Memento MCP server URL")
     .option("--memento-key <key>",               "Memento MCP access key")
     .action(async (opts) => {
+      if (!process.env.ANTHROPIC_API_KEY) {
+        console.error("Error: ANTHROPIC_API_KEY environment variable is not set.");
+        console.error("Set it with: export ANTHROPIC_API_KEY=your-key");
+        process.exit(1);
+      }
+
       const taskConfig   = loadConfig(opts.taskDir);
-      const trainTasks   = loadTasks(opts.taskDir, "train", taskConfig.scorer);
-      const valTasks     = loadTasks(opts.taskDir, "validation", taskConfig.scorer);
+      const trainTasks   = loadTasks(opts.taskDir, "train",      taskConfig.scorer, taskConfig.scorer_script ? path.resolve(opts.taskDir, taskConfig.scorer_script) : undefined);
+      const valTasks     = loadTasks(opts.taskDir, "validation", taskConfig.scorer, taskConfig.scorer_script ? path.resolve(opts.taskDir, taskConfig.scorer_script) : undefined);
 
       if (trainTasks.length === 0) {
         console.error("Error: No training tasks found in", opts.taskDir + "/train/");
@@ -108,6 +125,11 @@ export function makeEvolveCommand(): Command {
 
       printReport(report);
 
+      if (report.bestProgram.skills.length > 0) {
+        await saveSkills(report.bestProgram, opts.skillsDir);
+        console.log(`\nSaved ${report.bestProgram.skills.length} skill(s) to ${opts.skillsDir}/`);
+      }
+
       saveState({
         lastRun:   new Date().toISOString(),
         report,
@@ -116,6 +138,15 @@ export function makeEvolveCommand(): Command {
 
       console.log("\nState saved to .evolver/state.json");
     });
+}
+
+async function saveSkills(program: Program, skillsDir: string): Promise<void> {
+  await mkdir(skillsDir, { recursive: true });
+  for (const skill of program.skills) {
+    const skillDirPath = path.join(skillsDir, skill.name);
+    await mkdir(skillDirPath, { recursive: true });
+    await writeFile(path.join(skillDirPath, "SKILL.md"), skill.content, "utf-8");
+  }
 }
 
 function printReport(report: { bestProgram: { id: string; score: number; skills: { name: string }[] }; iterations: number; totalCostUsd: number; frontier: { id: string; score: number }[]; history: { proposal: { skillName: string }; accepted: boolean; delta: number }[] }): void {
