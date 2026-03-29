@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="skill-evolver" width="180" />
+</p>
+
 # skill-evolver
 
 **Failure-driven skill evolution for LLM coding agents.**
