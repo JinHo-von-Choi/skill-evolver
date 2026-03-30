@@ -11,8 +11,9 @@ import YAML from "yaml";
 import type { Task, ScorerType } from "@nerdvana/evolver-core";
 
 export interface TaskConfig {
-  scorer?:     ScorerType;
-  categories?: string[];
+  scorer?:        ScorerType;
+  scorer_script?: string;
+  categories?:    string[];
 }
 
 /**
@@ -28,7 +29,7 @@ export function loadConfig(taskDir: string): TaskConfig {
 /**
  * 지정된 서브디렉토리의 YAML 파일을 Task[] 로 로드한다.
  */
-export function loadTasks(taskDir: string, subDir: string, defaultScorer?: ScorerType): Task[] {
+export function loadTasks(taskDir: string, subDir: string, defaultScorer?: ScorerType, defaultScorerScript?: string): Task[] {
   const dir = path.join(taskDir, subDir);
   if (!fs.existsSync(dir)) return [];
 
@@ -45,13 +46,27 @@ export function loadTasks(taskDir: string, subDir: string, defaultScorer?: Score
 
     const id = parsed.id ?? path.basename(file, path.extname(file));
 
-    tasks.push({
+    const task: Task & Record<string, unknown> = {
       id,
       input:    parsed.input,
       expected: parsed.expected,
       category: parsed.category,
       scorer:   parsed.scorer ?? defaultScorer,
-    });
+    };
+
+    const resolvedScript = parsed.scorer_script
+      ? path.resolve(taskDir, parsed.scorer_script)
+      : undefined;
+    if (resolvedScript && !resolvedScript.startsWith(path.resolve(taskDir) + path.sep)) {
+      throw new Error(`scorer_script must be inside task directory: ${parsed.scorer_script}`);
+    }
+    const scorerScript = resolvedScript ?? defaultScorerScript;
+
+    if (scorerScript) {
+      task["scorerScript"] = scorerScript;
+    }
+
+    tasks.push(task);
   }
 
   return tasks;

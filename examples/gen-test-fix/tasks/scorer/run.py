@@ -6,11 +6,12 @@ gen-test / fix 태스크 커스텀 스코러.
 exit 0 → 1.0, 그 외 → 0.0
 """
 
-import re
-import sys
-import subprocess
-import tempfile
+import json
 import os
+import re
+import subprocess
+import sys
+import tempfile
 import yaml
 
 
@@ -81,13 +82,17 @@ def score(task: dict, agent_output: str) -> float:
 
 
 if __name__ == "__main__":
-    # CLI: python run.py <task.yaml> <agent_output.txt>
+    # CLI: python run.py <task.yaml|task.json> <agent_output.txt>
     if len(sys.argv) != 3:
-        print("usage: run.py <task.yaml> <agent_output.txt>")
+        print("usage: run.py <task.yaml|task.json> <agent_output.txt>")
         sys.exit(1)
 
     with open(sys.argv[1]) as f:
-        task = yaml.safe_load(f)
+        content = f.read()
+        try:
+            task = json.loads(content)
+        except json.JSONDecodeError:
+            task = yaml.safe_load(content)
 
     with open(sys.argv[2]) as f:
         output = f.read()

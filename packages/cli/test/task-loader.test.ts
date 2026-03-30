@@ -82,4 +82,71 @@ describe("loadTasks", () => {
     expect(tasks[0].id).toBe("a-task");
     expect(tasks[1].id).toBe("b-task");
   });
+
+  describe("scorer_script", () => {
+    it("defaultScorerScript가 scorerScript로 전달된다", () => {
+      const trainDir = path.join(tmpDir, "train");
+      fs.mkdirSync(trainDir);
+      fs.writeFileSync(path.join(trainDir, "task.yaml"), "input: x\nexpected: y\n");
+
+      const scriptPath = path.join(tmpDir, "scorer.py");
+      const tasks = loadTasks(tmpDir, "train", "custom", scriptPath);
+
+      expect((tasks[0] as Record<string, unknown>)["scorerScript"]).toBe(scriptPath);
+    });
+
+    it("태스크별 scorer_script가 taskDir 기준으로 resolve된다", () => {
+      const trainDir = path.join(tmpDir, "train");
+      fs.mkdirSync(trainDir);
+      fs.writeFileSync(
+        path.join(trainDir, "task.yaml"),
+        "input: x\nexpected: y\nscorer_script: scorer/run.py\n",
+      );
+
+      const tasks = loadTasks(tmpDir, "train", "custom");
+
+      expect((tasks[0] as Record<string, unknown>)["scorerScript"]).toBe(
+        path.resolve(tmpDir, "scorer/run.py"),
+      );
+    });
+
+    it("태스크별 scorer_script가 defaultScorerScript를 오버라이드한다", () => {
+      const trainDir = path.join(tmpDir, "train");
+      fs.mkdirSync(trainDir);
+      fs.writeFileSync(
+        path.join(trainDir, "task.yaml"),
+        "input: x\nexpected: y\nscorer_script: scorer/custom.py\n",
+      );
+
+      const defaultScript = path.join(tmpDir, "scorer/default.py");
+      const tasks = loadTasks(tmpDir, "train", "custom", defaultScript);
+
+      expect((tasks[0] as Record<string, unknown>)["scorerScript"]).toBe(
+        path.resolve(tmpDir, "scorer/custom.py"),
+      );
+    });
+
+    it("scorer_script가 없는 태스크에는 scorerScript 필드가 없다", () => {
+      const trainDir = path.join(tmpDir, "train");
+      fs.mkdirSync(trainDir);
+      fs.writeFileSync(path.join(trainDir, "task.yaml"), "input: x\nexpected: y\n");
+
+      const tasks = loadTasks(tmpDir, "train", "exact-match");
+
+      expect(Object.prototype.hasOwnProperty.call(tasks[0], "scorerScript")).toBe(false);
+    });
+
+    it("taskDir 외부 경로의 scorer_script는 예외를 발생시킨다", () => {
+      const trainDir = path.join(tmpDir, "train");
+      fs.mkdirSync(trainDir);
+      fs.writeFileSync(
+        path.join(trainDir, "task.yaml"),
+        "input: x\nexpected: y\nscorer_script: ../../malicious.py\n",
+      );
+
+      expect(() => loadTasks(tmpDir, "train", "custom")).toThrow(
+        "scorer_script must be inside task directory",
+      );
+    });
+  });
 });

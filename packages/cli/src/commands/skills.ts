@@ -171,8 +171,11 @@ function makeTestCommand(defaultDir: string): Command {
       }
 
       const { loadTasks, loadConfig } = await import("../task-loader.js");
-      const taskConfig = loadConfig(opts.taskDir);
-      const tasks      = loadTasks(opts.taskDir, "validation", taskConfig.scorer);
+      const taskConfig    = loadConfig(opts.taskDir);
+      const scorerScript  = taskConfig.scorer_script
+        ? path.resolve(opts.taskDir, taskConfig.scorer_script)
+        : undefined;
+      const tasks         = loadTasks(opts.taskDir, "validation", taskConfig.scorer, scorerScript);
 
       if (tasks.length === 0) {
         console.error("Error: No validation tasks found in", opts.taskDir + "/validation/");
