@@ -17,8 +17,10 @@ import type {
 import { groupByPattern } from "./failure-analyzer.js";
 
 export interface LlmProposerConfig {
-  model?:  string;
-  apiKey?: string;
+  model?:   string;
+  apiKey?:  string;
+  /** Anthropic 호환 엔드포인트. 미지정 시 SDK 기본값(ANTHROPIC_BASE_URL 환경변수 포함). */
+  baseURL?: string;
 }
 
 const DEFAULT_MODEL = "claude-sonnet-4-6";
@@ -49,7 +51,7 @@ export class LlmProposer implements Proposer {
 
   constructor(config: LlmProposerConfig = {}) {
     this.model  = config.model ?? DEFAULT_MODEL;
-    this.client = new Anthropic({ apiKey: config.apiKey });
+    this.client = new Anthropic({ apiKey: config.apiKey, baseURL: config.baseURL });
   }
 
   async propose(

@@ -22,18 +22,24 @@ const DEFAULT_ADAPTER_CONFIG = {
   concurrency: 3,
 };
 
-async function resolveAdapter(name: string): Promise<Executor> {
+interface AdapterTuning {
+  concurrency: number;
+  timeout:     number;
+}
+
+async function resolveAdapter(name: string, tuning: AdapterTuning): Promise<Executor> {
+  const base = { ...DEFAULT_ADAPTER_CONFIG, ...tuning };
   if (name === "claude-code") {
     const mod = await import("@nerdvana/evolver-adapter-claude-code");
-    return new mod.ClaudeCodeExecutor({ ...DEFAULT_ADAPTER_CONFIG, name: "claude-code", command: "claude" });
+    return new mod.ClaudeCodeExecutor({ ...base, name: "claude-code", command: "claude" });
   }
   if (name === "cursor") {
     const mod = await import("@nerdvana/evolver-adapter-cursor");
-    return new mod.CursorExecutor({ ...DEFAULT_ADAPTER_CONFIG, name: "cursor", command: "cursor", skillsPath: ".cursor/rules" });
+    return new mod.CursorExecutor({ ...base, name: "cursor", command: "cursor", skillsPath: ".cursor/rules" });
   }
   if (name === "codex") {
     const mod = await import("@nerdvana/evolver-adapter-codex");
-    return new mod.CodexExecutor({ ...DEFAULT_ADAPTER_CONFIG, name: "codex", command: "codex", skillsPath: "." });
+    return new mod.CodexExecutor({ ...base, name: "codex", command: "codex", skillsPath: "." });
   }
   throw new Error(`Unknown adapter: ${name}. Available: claude-code, cursor, codex`);
 }
@@ -53,9 +59,18 @@ async function resolvePlugins(opts: { plugin?: string; mementoUrl?: string; meme
   return plugins;
 }
 
-async function resolveSkillBuilder(model?: string): Promise<SkillBuilder> {
+async function resolveSkillBuilder(model?: string, baseURL?: string): Promise<SkillBuilder> {
   const mod = await import("@nerdvana/evolver-skill-builder");
-  return new mod.SkillMaterializer(model ? { model } : undefined);
+  return new mod.SkillMaterializer({ ...(model ? { model } : {}), ...(baseURL ? { baseURL } : {}) });
+}
+
+function parsePositiveInt(raw: string, flag: string): number {
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1) {
+    console.error(`Error: ${flag} must be a positive integer, got "${raw}"`);
+    process.exit(1);
+  }
+  return n;
 }
 
 export function makeEvolveCommand(): Command {
@@ -75,14 +90,17 @@ export function makeEvolveCommand(): Command {
     .option("--selection <strategy>",            "Parent selection (round-robin | tournament)", "round-robin")
     .option("--acceptance-margin <n>",           "Minimum mean score gain over parent to accept a candidate", "0")
     .option("--executor-model <model>",          "Model used by the executor (cost estimation)")
+    .option("--concurrency <n>",                 "Tasks executed in parallel per evaluation", "3")
+    .option("--timeout <seconds>",               "Per-task execution timeout in seconds", "60")
+    .option("--api-base-url <url>",              "Anthropic-compatible endpoint for proposer and builder (default: ANTHROPIC_BASE_URL)")
     .option("--max-iterations <n>",              "Max evolution iterations", "10")
     .option("--failure-threshold <n>",           "Score threshold for failure", "0.5")
     .option("--plugin <name>",                   "Plugin to load (e.g. memento)")
     .option("--memento-url <url>",               "Memento MCP server URL")
     .option("--memento-key <key>",               "Memento MCP access key")
     .action(async (opts) => {
-      if (!process.env.ANTHROPIC_API_KEY) {
-        console.error("Error: ANTHROPIC_API_KEY environment variable is not set.");
+      if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
+        console.error("Error: neither ANTHROPIC_API_KEY nor ANTHROPIC_AUTH_TOKEN is set.");
         console.error("Set it with: export ANTHROPIC_API_KEY=your-key");
         process.exit(1);
       }
@@ -106,9 +124,12 @@ export function makeEvolveCommand(): Command {
         console.warn("Warning: no holdout/ tasks found; generalization of the best skills will not be measured.");
       }
 
-      const executor     = await resolveAdapter(opts.adapter);
-      const proposer     = new LlmProposer({ model: opts.proposerModel });
-      const skillBuilder = await resolveSkillBuilder(opts.builderModel);
+      const executor     = await resolveAdapter(opts.adapter, {
+        concurrency: parsePositiveInt(opts.concurrency, "--concurrency"),
+        timeout:     parsePositiveInt(opts.timeout, "--timeout") * 1000,
+      });
+      const proposer     = new LlmProposer({ model: opts.proposerModel, baseURL: opts.apiBaseUrl });
+      const skillBuilder = await resolveSkillBuilder(opts.builderModel, opts.apiBaseUrl);
       const plugins      = await resolvePlugins(opts);
 
       if (opts.selection !== "round-robin" && opts.selection !== "tournament") {
@@ -167,6 +188,11 @@ export function makeEvolveCommand(): Command {
       });
 
       console.log("\nState saved to .evolver/state.json");
+
+      if (report.abortReason) {
+        console.error(`\nEvolution aborted: ${report.abortReason}`);
+        process.exitCode = 1;
+      }
     });
 }
 
@@ -187,7 +213,7 @@ export function formatStats(stats: ScoreStats | undefined, fallback: number): st
 }
 
 type ReportView = Pick<EvolutionReport, "bestProgram" | "iterations" | "totalCostUsd" | "frontier" | "history"> &
-  Partial<Pick<EvolutionReport, "baseline" | "holdout">>;
+  Partial<Pick<EvolutionReport, "baseline" | "holdout" | "abortReason">>;
 
 export function printReport(report: ReportView): void {
   console.log("\n=== Evolution Report ===");

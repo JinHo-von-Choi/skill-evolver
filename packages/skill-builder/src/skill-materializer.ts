@@ -11,8 +11,10 @@ const DEFAULT_MODEL  = "claude-haiku-4-5";
 const MAX_TOKENS     = 4096;
 
 interface SkillMaterializerOptions {
-  model?:  string;
-  client?: Anthropic;
+  model?:   string;
+  client?:  Anthropic;
+  /** Anthropic 호환 엔드포인트. client 미지정 시에만 사용. */
+  baseURL?: string;
 }
 
 export class SkillMaterializer implements SkillBuilder {
@@ -22,7 +24,7 @@ export class SkillMaterializer implements SkillBuilder {
 
   constructor(options: SkillMaterializerOptions = {}) {
     this.model  = options.model ?? DEFAULT_MODEL;
-    this.client = options.client ?? new Anthropic();
+    this.client = options.client ?? new Anthropic({ baseURL: options.baseURL });
   }
 
   async build(

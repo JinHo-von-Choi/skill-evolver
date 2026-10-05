@@ -196,6 +196,8 @@ export interface EvolutionConfig {
   pricing?:           Record<string, ModelPricing>;
   /** 적응형 frontier 용량 조정 주기 (이터레이션 단위, 기본 5). */
   adaptiveInterval?:  number;
+  /** proposer/builder가 연속 이만큼 실패하면 루프를 중단 (기본 3). */
+  maxConsecutiveLlmFailures?: number;
 }
 
 export interface AdapterConfig {
@@ -226,6 +228,8 @@ export interface EvolutionReport {
   history:        FeedbackEntry[];
   durationMs:     number;
   holdout?:       HoldoutReport;
+  /** 루프가 정상 종료되지 못하고 중단된 경우 그 사유. */
+  abortReason?:   string;
 }
 
 export interface ConflictResult {

@@ -33,6 +33,9 @@ npx evolver evolve --task-dir ./tasks [options]
 | `--selection <strategy>` | string | `round-robin` | no | Parent selection: `round-robin` or `tournament` |
 | `--acceptance-margin <n>` | number | `0` | no | Minimum mean validation gain over the parent for a candidate to be accepted |
 | `--executor-model <model>` | string | none | no | Model used by the executor, for cost estimation |
+| `--concurrency <n>` | number | `3` | no | Tasks executed in parallel per evaluation |
+| `--timeout <seconds>` | number | `60` | no | Per-task execution timeout |
+| `--api-base-url <url>` | string | `ANTHROPIC_BASE_URL` | no | Anthropic-compatible endpoint for the proposer and builder |
 | `--max-iterations <n>` | number | `10` | no | Maximum evolution iterations |
 | `--failure-threshold <n>` | number | `0.5` | no | Score below this is treated as failure for proposal generation |
 | `--plugin <name>` | string | none | no | Plugin to load (currently: `memento`) |

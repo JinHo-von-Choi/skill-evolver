@@ -414,5 +414,64 @@ describe("EvolutionLoop", () => {
     expect(report.iterations).toBe(4);
     expect(seen).toHaveLength(4);
   });
+
+  it("인증 오류는 즉시 중단하고 사유를 보고한다", async () => {
+    const propose = vi.fn(async () => { throw Object.assign(new Error("invalid x-api-key"), { status: 401 }); });
+    const loop = new EvolutionLoop({
+      executor:        makeMockExecutor(0.3, 0.8),
+      proposer:        { propose },
+      skillBuilder:    makeMockSkillBuilder(),
+      trainTasks,
+      validationTasks: valTasks,
+      holdoutTasks:    [{ id: "h1", input: "x", expected: "y" }],
+      config:          makeConfig({ maxIterations: 10 }),
+    });
+    const report = await loop.run();
+
+    expect(propose).toHaveBeenCalledTimes(1);
+    expect(report.iterations).toBe(1);
+    expect(report.abortReason).toMatch(/invalid x-api-key/);
+    expect(report.holdout).toBeUndefined();
+  });
+
+  it("일반 오류가 연속 한도를 넘으면 중단한다", async () => {
+    const propose = vi.fn(async () => { throw new Error("bad json"); });
+    const loop = new EvolutionLoop({
+      executor:        makeMockExecutor(0.3, 0.8),
+      proposer:        { propose },
+      skillBuilder:    makeMockSkillBuilder(),
+      trainTasks,
+      validationTasks: valTasks,
+      config:          makeConfig({ maxIterations: 10, maxConsecutiveLlmFailures: 3 }),
+    });
+    const report = await loop.run();
+
+    expect(propose).toHaveBeenCalledTimes(3);
+    expect(report.abortReason).toMatch(/3 consecutive failures/);
+  });
+
+  it("성공하면 연속 실패 횟수가 초기화된다", async () => {
+    let n = 0;
+    const base = makeMockProposer();
+    const proposer: Proposer = {
+      async propose(f, h, c) {
+        n++;
+        if (n % 2 === 1) throw new Error("flaky");
+        return base.propose(f, h, c);
+      },
+    };
+    const loop = new EvolutionLoop({
+      executor:        makeMockExecutor(0.3, 0.8),
+      proposer,
+      skillBuilder:    makeMockSkillBuilder(),
+      trainTasks,
+      validationTasks: valTasks,
+      config:          makeConfig({ maxIterations: 6, maxConsecutiveLlmFailures: 2 }),
+    });
+    const report = await loop.run();
+
+    expect(report.abortReason).toBeUndefined();
+    expect(report.iterations).toBe(6);
+  });
 });
 

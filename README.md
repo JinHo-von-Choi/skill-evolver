@@ -127,7 +127,7 @@ npm install @nerdvana/evolver-core \
 ### Requirements
 
 - Node.js 20+
-- `ANTHROPIC_API_KEY` environment variable (for Proposer and Builder LLMs)
+- `ANTHROPIC_API_KEY` (or `ANTHROPIC_AUTH_TOKEN`) environment variable for the Proposer and Builder LLMs. Third-party Anthropic-compatible endpoints can be used with `--api-base-url` or `ANTHROPIC_BASE_URL`; compatibility of auth and model names is the endpoint's responsibility.
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
@@ -189,6 +189,9 @@ Run the skill evolution loop.
 | `--selection <strategy>` | `round-robin` | Parent selection: `round-robin` or `tournament` |
 | `--acceptance-margin <n>` | `0` | Minimum mean gain over the parent to accept a candidate |
 | `--executor-model <model>` | none | Executor model, for cost estimation |
+| `--concurrency <n>` | `3` | Tasks executed in parallel per evaluation |
+| `--timeout <seconds>` | `60` | Per-task execution timeout |
+| `--api-base-url <url>` | `ANTHROPIC_BASE_URL` | Anthropic-compatible endpoint for proposer and builder |
 | `--max-iterations <n>` | `10` | Maximum evolution iterations |
 | `--failure-threshold <n>` | `0.5` | Score below this is treated as failure |
 | `--plugin <name>` | none | Plugin to load (e.g. `memento`) |

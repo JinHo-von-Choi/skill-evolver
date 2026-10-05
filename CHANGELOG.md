@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Claude Code adapter now deploys skills as a real plugin (`.claude-plugin/plugin.json`, `skills/<name>/SKILL.md`, bundled scripts) and passes the plugin root to `--plugin-dir`. The previous layout (a folder of `<name>.md` files) was not recognized by `claude` as a plugin, so skills were never loaded during evaluation. SKILL.md frontmatter is completed with `name` and `description` when missing.
+- `evolver --version` reports the package version instead of a hardcoded `0.1.0`.
+- Authentication, permission, and endpoint errors from the proposer or builder now stop the loop immediately instead of being skipped for every remaining iteration; other errors stop it after 3 consecutive failures (`maxConsecutiveLlmFailures`). The report carries `abortReason` and the CLI exits non-zero.
+
+### Added (follow-up)
+
+- `--concurrency`, `--timeout`, and `--api-base-url` flags; `ANTHROPIC_AUTH_TOKEN` is accepted in place of `ANTHROPIC_API_KEY`
+- Offline smoke test that checks a deployed plugin is loaded by the real `claude` CLI (skipped when `claude` is not installed)
+
 ### Added
 
 - Multi-run statistics: `Program.scoreStats` and the report now carry mean, sample standard deviation, and 95% confidence interval (`summarize`, `isSignificantImprovement` in core)

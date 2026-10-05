@@ -22,6 +22,7 @@ import { ParetoFrontier }    from "./pareto-frontier.js";
 import { AdaptiveFrontier }  from "./adaptive-frontier.js";
 import { summarize, isSignificantImprovement } from "./stats.js";
 import { estimateCostUsd }   from "./pricing.js";
+import { isFatalLlmError }   from "./errors.js";
 import { FeedbackHistory }   from "./feedback-history.js";
 import { CostTracker }       from "./cost-tracker.js";
 import { ConflictDetector }  from "./conflict-detector.js";
@@ -65,6 +66,8 @@ export class EvolutionLoop {
   private readonly history:           FeedbackHistory;
   private readonly costTracker:       CostTracker;
   private readonly conflictDetector:  ConflictDetector;
+  private llmFailures  = 0;
+  private abortReason: string | undefined;
 
   constructor(opts: EvolutionLoopOptions) {
     this.executor        = opts.executor;
@@ -134,11 +137,12 @@ export class EvolutionLoop {
       try {
         proposal = await this.proposer.propose(failures, this.history.getAll(), pluginCtx);
       } catch (err) {
-        console.warn(`[evolver] Proposer failed at iteration ${i}: ${errorMessage(err)}`);
+        if (this.noteLlmFailure("Proposer", i, err)) break;
         continue;
       } finally {
         this.recordLlmUsage(i, this.proposer.drainUsage?.());
       }
+      this.llmFailures = 0;
       if (this.costTracker.isOverBudget()) break;
 
       if (this.history.isDuplicate(proposal)) continue;
@@ -167,11 +171,12 @@ export class EvolutionLoop {
       try {
         skill = await this.skillBuilder.build(proposal, parent.skills, proposalCtx);
       } catch (err) {
-        console.warn(`[evolver] Skill build failed for "${proposal.skillName}": ${errorMessage(err)}`);
+        if (this.noteLlmFailure("Skill builder", i, err)) break;
         continue;
       } finally {
         this.recordLlmUsage(i, this.skillBuilder.drainUsage?.());
       }
+      this.llmFailures = 0;
       if (this.costTracker.isOverBudget()) break;
 
       const candidate = this.makeCandidate(parent, skill, i + 1, proposal);
@@ -223,7 +228,9 @@ export class EvolutionLoop {
     }
 
     const best    = this.frontier.best();
-    const holdout = await this.evaluateHoldout(baseline, best, iterations);
+    const holdout = this.abortReason
+      ? undefined
+      : await this.evaluateHoldout(baseline, best, iterations);
 
     return {
       bestProgram:  best,
@@ -234,7 +241,29 @@ export class EvolutionLoop {
       history:      this.history.getAll(),
       durationMs:   Date.now() - startTime,
       ...(holdout ? { holdout } : {}),
+      ...(this.abortReason ? { abortReason: this.abortReason } : {}),
     };
+  }
+
+  /**
+   * proposer/builder 실패를 기록한다. 인증 계열 오류이거나 연속 실패 한도를 넘으면
+   * 중단 사유를 남기고 true를 반환한다.
+   */
+  private noteLlmFailure(stage: string, iteration: number, err: unknown): boolean {
+    this.llmFailures++;
+    const limit   = this.config.maxConsecutiveLlmFailures ?? 3;
+    const message = `${stage} failed at iteration ${iteration}: ${errorMessage(err)}`;
+    console.warn(`[evolver] ${message}`);
+
+    if (isFatalLlmError(err)) {
+      this.abortReason = `${message} (authentication or endpoint error, not retrying)`;
+      return true;
+    }
+    if (this.llmFailures >= limit) {
+      this.abortReason = `${message} (${this.llmFailures} consecutive failures)`;
+      return true;
+    }
+    return false;
   }
 
   private createFrontier(config: EvolutionConfig): ParetoFrontier {

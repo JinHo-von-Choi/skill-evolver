@@ -6,7 +6,7 @@
  */
 
 import { execFile }   from "node:child_process";
-import { mkdir, writeFile, rm, mkdtemp } from "node:fs/promises";
+import { writeFile, rm, mkdtemp } from "node:fs/promises";
 import { join }       from "node:path";
 import { tmpdir }     from "node:os";
 import { randomUUID } from "node:crypto";
@@ -22,21 +22,7 @@ import type {
 import { getScorer } from "@nerdvana/evolver-core";
 
 import { ResultParser } from "./result-parser.js";
-
-/* ------------------------------------------------------------------ */
-/*  스킬 배치 헬퍼                                                      */
-/* ------------------------------------------------------------------ */
-
-async function deploySkills(
-  skills:    Program["skills"],
-  targetDir: string,
-): Promise<void> {
-  await mkdir(targetDir, { recursive: true });
-  for (const skill of skills) {
-    const filePath = join(targetDir, `${skill.name}.md`);
-    await writeFile(filePath, skill.content, "utf-8");
-  }
-}
+import { deployPlugin }  from "./skill-deployer.js";
 
 /* ------------------------------------------------------------------ */
 /*  커스텀 스코러 실행                                                   */
@@ -117,18 +103,18 @@ export class ClaudeCodeExecutor implements Executor {
   }
 
   async run(program: Program, tasks: Task[]): Promise<ExecutionResult[]> {
-    const workDir  = join(tmpdir(), `evolver-${randomUUID()}`);
-    const skillDir = join(workDir, "skills");
+    const workDir   = join(tmpdir(), `evolver-${randomUUID()}`);
+    const pluginDir = join(workDir, "plugin");
 
     try {
-      await deploySkills(program.skills, skillDir);
+      await deployPlugin(program.skills, pluginDir);
 
       const results: ExecutionResult[] = [];
       const { concurrency, timeout, command } = this.config;
 
       for (let i = 0; i < tasks.length; i += concurrency) {
         const batch    = tasks.slice(i, i + concurrency);
-        const promises = batch.map((task) => this.executeTask(command, task, skillDir, timeout));
+        const promises = batch.map((task) => this.executeTask(command, task, pluginDir, timeout));
         const batchResults = await Promise.all(promises);
         results.push(...batchResults);
       }
@@ -140,10 +126,10 @@ export class ClaudeCodeExecutor implements Executor {
   }
 
   private async executeTask(
-    command:  string,
-    task:     Task,
-    skillDir: string,
-    timeout:  number,
+    command:   string,
+    task:      Task,
+    pluginDir: string,
+    timeout:   number,
   ): Promise<ExecutionResult> {
     const prompt = typeof task.input === "string"
       ? task.input
@@ -152,7 +138,7 @@ export class ClaudeCodeExecutor implements Executor {
     const args = [
       "--print",
       "--output-format", "json",
-      "--plugin-dir",    skillDir,
+      "--plugin-dir",    pluginDir,
       "--permission-mode", "bypassPermissions",
       prompt,
     ];

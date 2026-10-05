@@ -90,15 +90,21 @@ describe("ClaudeCodeExecutor", () => {
     writtenFiles.clear();
   });
 
-  it("스킬을 임시 디렉토리에 SKILL.md로 배치한다", async () => {
+  it("스킬을 플러그인 규격(skills/<name>/SKILL.md)으로 배치하고 plugin-dir로 넘긴다", async () => {
     mockExecResponse(JSON.stringify({ result: "2" }));
 
     const executor = new ClaudeCodeExecutor(TEST_CONFIG);
     await executor.run(TEST_PROGRAM, [TEST_TASKS[0]]);
 
-    const fileNames = [...writtenFiles.keys()].map((p) => p.split("/").pop());
-    expect(fileNames).toContain("math-solver.md");
-    expect(fileNames).toContain("code-gen.md");
+    const paths = [...writtenFiles.keys()];
+    expect(paths.some((p) => p.endsWith(join("skills", "math-solver", "SKILL.md")))).toBe(true);
+    expect(paths.some((p) => p.endsWith(join("skills", "code-gen", "SKILL.md")))).toBe(true);
+    expect(paths.some((p) => p.endsWith(join(".claude-plugin", "plugin.json")))).toBe(true);
+
+    const args      = mockExecFile.mock.calls[0][1] as string[];
+    const pluginDir = args[args.indexOf("--plugin-dir") + 1];
+    expect(pluginDir.endsWith("plugin")).toBe(true);
+    expect(paths.every((p) => p.startsWith(pluginDir))).toBe(true);
   });
 
   it("각 태스크에 대해 execFile을 호출한다", async () => {
