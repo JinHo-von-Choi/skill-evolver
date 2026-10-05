@@ -19,7 +19,7 @@ npx evolver evolve --task-dir ./tasks [options]
 
 | Flag | Type | Default | Required | Description |
 |------|------|---------|----------|-------------|
-| `--task-dir <path>` | string | -- | yes | Path to task directory containing `config.yaml`, `train/`, `validation/` |
+| `--task-dir <path>` | string | -- | yes | Path to task directory containing `config.yaml`, `train/`, `validation/` and optionally `holdout/` |
 | `--skills-dir <path>` | string | `./skills` | no | Output directory for discovered skills |
 | `--adapter <name>` | string | `claude-code` | no | Executor adapter: `claude-code`, `cursor`, `codex` |
 | `--proposer-model <model>` | string | `claude-sonnet-4-6` | no | LLM model for failure analysis and skill proposal |
@@ -27,6 +27,12 @@ npx evolver evolve --task-dir ./tasks [options]
 | `--runs <n>` | number | `3` | no | Independent runs per evaluation (statistical rigor) |
 | `--budget-limit <usd>` | number | none | no | Maximum USD spend before early termination |
 | `--frontier-capacity <n>` | number | `3` | no | Pareto frontier size (number of top programs to keep) |
+| `--adaptive-frontier` | flag | off | no | Adjust frontier capacity every 5 iterations from diversity metrics |
+| `--frontier-min <n>` | number | `2` | no | Minimum capacity when `--adaptive-frontier` is set |
+| `--frontier-max <n>` | number | `7` | no | Maximum capacity when `--adaptive-frontier` is set |
+| `--selection <strategy>` | string | `round-robin` | no | Parent selection: `round-robin` or `tournament` |
+| `--acceptance-margin <n>` | number | `0` | no | Minimum mean validation gain over the parent for a candidate to be accepted |
+| `--executor-model <model>` | string | none | no | Model used by the executor, for cost estimation |
 | `--max-iterations <n>` | number | `10` | no | Maximum evolution iterations |
 | `--failure-threshold <n>` | number | `0.5` | no | Score below this is treated as failure for proposal generation |
 | `--plugin <name>` | string | none | no | Plugin to load (currently: `memento`) |

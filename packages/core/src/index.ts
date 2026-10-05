@@ -6,5 +6,7 @@ export * from "./cost-tracker.js";
 export * from "./conflict-detector.js";
 export * from "./evolution-loop.js";
 export * from "./cross-model-tester.js";
+export * from "./stats.js";
+export * from "./pricing.js";
 export { exactMatch, fuzzy, getScorer } from "./scorer.js";
 export type { ScorerFn } from "./scorer.js";

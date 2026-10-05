@@ -9,6 +9,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type {
   Failure,
   FeedbackEntry,
+  LlmUsage,
   PluginContext,
   Proposer,
   SkillProposal,
@@ -44,6 +45,7 @@ Rules:
 export class LlmProposer implements Proposer {
   private readonly client: Anthropic;
   private readonly model:  string;
+  private usage:           LlmUsage[] = [];
 
   constructor(config: LlmProposerConfig = {}) {
     this.model  = config.model ?? DEFAULT_MODEL;
@@ -84,12 +86,24 @@ export class LlmProposer implements Proposer {
       messages:   [{ role: "user", content: userMessage }],
     });
 
+    this.usage.push({
+      model:  this.model,
+      input:  response.usage?.input_tokens  ?? 0,
+      output: response.usage?.output_tokens ?? 0,
+    });
+
     const text = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map(b => b.text)
       .join("");
 
     return parseProposal(text);
+  }
+
+  drainUsage(): LlmUsage[] {
+    const drained = this.usage;
+    this.usage    = [];
+    return drained;
   }
 }
 

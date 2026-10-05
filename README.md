@@ -76,9 +76,10 @@ import { SkillMaterializer } from "@nerdvana/evolver-skill-builder";
 ## Highlights
 
 - **Failure-driven evolution** — Skills emerge from what the agent gets wrong, not from hand-written rules. A 3-agent loop (Executor, Proposer, Builder) iterates until a budget or iteration cap is reached.
-- **Multi-run statistics** — Every candidate is evaluated across `N` independent runs. Reports include mean, standard deviation, and confidence intervals instead of single-shot scores.
+- **Multi-run statistics** — Every candidate is evaluated across `N` independent runs. Reports include mean, standard deviation, and 95% confidence intervals, and a candidate is accepted only when it beats its parent with statistical significance.
+- **Hold-out evaluation** — An optional `holdout/` task directory is scored only once at the end, comparing the baseline with the best program to expose validation-set overfitting.
 - **Cross-model transfer** — Skills discovered on one agent (e.g. Claude Code) can be validated on others (Cursor, Codex) via `evolver skills test --cross-model`.
-- **Cost-aware evolution** — `CostTracker` records per-iteration token usage and USD spend. `--budget-limit` triggers early termination before costs spiral.
+- **Cost-aware evolution** — `CostTracker` records executor, proposer, and builder token usage with per-model pricing. `--budget-limit` is checked after every LLM-calling stage, not only at the end of an iteration.
 
 ---
 
@@ -184,6 +185,10 @@ Run the skill evolution loop.
 | `--runs <n>` | `3` | Independent runs per evaluation (statistical rigor) |
 | `--budget-limit <usd>` | none | Maximum USD spend before early termination |
 | `--frontier-capacity <n>` | `3` | Pareto frontier size |
+| `--adaptive-frontier` | off | Adjust frontier capacity from diversity metrics (`--frontier-min`, `--frontier-max`) |
+| `--selection <strategy>` | `round-robin` | Parent selection: `round-robin` or `tournament` |
+| `--acceptance-margin <n>` | `0` | Minimum mean gain over the parent to accept a candidate |
+| `--executor-model <model>` | none | Executor model, for cost estimation |
 | `--max-iterations <n>` | `10` | Maximum evolution iterations |
 | `--failure-threshold <n>` | `0.5` | Score below this is treated as failure |
 | `--plugin <name>` | none | Plugin to load (e.g. `memento`) |
@@ -335,7 +340,7 @@ skill-evolver/
 |-----------|-------------|
 | `EvolutionLoop` | Main orchestrator. Runs the select-execute-propose-build-validate cycle. |
 | `ParetoFrontier` | Maintains top-k programs by score. Round-robin parent selection. |
-| `AdaptiveFrontier` | Extends ParetoFrontier with automatic capacity adjustment based on diversity metrics (skill overlap rate, score variance). |
+| `AdaptiveFrontier` | Extends ParetoFrontier with automatic capacity adjustment based on diversity metrics (skill overlap rate, score variance). Enabled with `--adaptive-frontier`. |
 | `FeedbackHistory` | Deduplicated log of all proposals, their acceptance status, and score deltas. |
 | `CostTracker` | Per-iteration token usage and USD cost accounting. |
 | `ConflictDetector` | Detects trigger overlap between skills; enforces `--max-skills` capacity. |
@@ -358,6 +363,8 @@ tasks/
     task-002.yaml
   validation/
     task-010.yaml
+  holdout/                 # optional
+    task-020.yaml
 ```
 
 **config.yaml**:
@@ -388,6 +395,10 @@ category: geography
 | `runs` | `number` | Independent runs per evaluation |
 | `budgetLimit` | `number?` | USD cap for early termination |
 | `maxSkills` | `number` | Maximum skills per program |
+| `acceptanceMargin` | `number?` | Minimum mean gain over the parent for acceptance |
+| `executorModel` | `string?` | Executor model used for cost estimation |
+| `pricing` | `Record<string, ModelPricing>?` | Per-model price overrides (USD per million tokens) |
+| `adaptiveInterval` | `number?` | Iterations between adaptive capacity adjustments (default 5) |
 
 ---
 
@@ -397,7 +408,8 @@ Enhancements over the original EvoSkill paper ([arXiv:2603.02766](https://arxiv.
 
 | EvoSkill Limitation | Evolver Solution |
 |---------------------|------------------|
-| Single run, no statistics | `--runs N` with mean/stddev/CI report |
+| Single run, no statistics | `--runs N` with mean/stddev/95% CI report and significance-gated acceptance |
+| Validation-set overfitting | Optional `holdout/` set scored once at the end |
 | No cost analysis | `CostTracker`: per-iteration token/cost accounting, `--budget-limit` early stop |
 | Skill conflicts ignored | `ConflictDetector`: trigger overlap detection, `--max-skills` cap |
 | Single model only | Separate `--proposer-model` / `--builder-model` for cost optimization |

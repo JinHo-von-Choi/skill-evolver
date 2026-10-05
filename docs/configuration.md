@@ -15,7 +15,15 @@ tasks/
     task-010.yaml
     task-011.yaml
     ...
+  holdout/                 # optional, never used for acceptance; measures final generalization
+    task-020.yaml
+    ...
 ```
+
+Candidates are accepted when their mean validation score beats the parent's with statistical significance
+(95% confidence interval, Welch-style, when `--runs` is 2 or more). Because validation scores drive acceptance,
+repeated iterations can overfit the validation set; the `holdout/` set is evaluated once at the end for the
+baseline and the best program, and the report prints the difference.
 
 ### config.yaml Schema
 

@@ -139,4 +139,22 @@ describe("LlmProposer", () => {
 
     expect(mockCreate.mock.calls[0][0].model).toBe("claude-sonnet-4-6");
   });
+
+  it("API 응답의 토큰 사용량을 누적하고 drainUsage로 비운다", async () => {
+    mockCreate.mockResolvedValue({
+      content: [{ type: "text", text: JSON.stringify(VALID_PROPOSAL) }],
+      usage:   { input_tokens: 120, output_tokens: 45 },
+    });
+    const proposer = new LlmProposer({ model: "claude-sonnet-4-6" });
+    await proposer.propose([makeFail("t1", "boom")], []);
+    await proposer.propose([makeFail("t2", "boom")], []);
+
+    const usage = proposer.drainUsage();
+    expect(usage).toEqual([
+      { model: "claude-sonnet-4-6", input: 120, output: 45 },
+      { model: "claude-sonnet-4-6", input: 120, output: 45 },
+    ]);
+    expect(proposer.drainUsage()).toEqual([]);
+  });
 });
+
