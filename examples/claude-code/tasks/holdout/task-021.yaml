@@ -1,0 +1,5 @@
+id: task-021
+input: "What is 17 * 3? Answer with the number only."
+expected: "51"
+category: math
+scorer: exact-match

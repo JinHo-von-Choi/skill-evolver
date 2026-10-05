@@ -1,0 +1,5 @@
+id: task-020
+input: "What is the capital of Canada?"
+expected: "Ottawa"
+category: geography
+scorer: exact-match

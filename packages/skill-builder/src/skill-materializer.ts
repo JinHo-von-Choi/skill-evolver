@@ -4,7 +4,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import type { Skill, SkillBuilder, SkillProposal, PluginContext } from "@nerdvana/evolver-core";
+import type { Skill, SkillBuilder, SkillProposal, PluginContext, LlmUsage } from "@nerdvana/evolver-core";
 import { META_SKILL } from "./meta-skill.js";
 
 const DEFAULT_MODEL  = "claude-haiku-4-5";
@@ -18,6 +18,7 @@ interface SkillMaterializerOptions {
 export class SkillMaterializer implements SkillBuilder {
   private readonly model:  string;
   private readonly client: Anthropic;
+  private usage:           LlmUsage[] = [];
 
   constructor(options: SkillMaterializerOptions = {}) {
     this.model  = options.model ?? DEFAULT_MODEL;
@@ -30,7 +31,7 @@ export class SkillMaterializer implements SkillBuilder {
     context?:     PluginContext,
   ): Promise<Skill> {
     const systemPrompt = this.buildSystemPrompt(parentSkills);
-    const userPrompt   = this.buildUserPrompt(proposal, context);
+    const userPrompt   = this.buildUserPrompt(proposal, parentSkills, context);
 
     const response = await this.client.messages.create({
       model:      this.model,
@@ -39,12 +40,24 @@ export class SkillMaterializer implements SkillBuilder {
       messages:   [{ role: "user", content: userPrompt }],
     });
 
+    this.usage.push({
+      model:  this.model,
+      input:  response.usage?.input_tokens  ?? 0,
+      output: response.usage?.output_tokens ?? 0,
+    });
+
     const text = response.content
       .filter((block): block is Anthropic.TextBlock => block.type === "text")
       .map((block) => block.text)
       .join("\n");
 
     return this.parseResponse(text, proposal);
+  }
+
+  drainUsage(): LlmUsage[] {
+    const drained = this.usage;
+    this.usage    = [];
+    return drained;
   }
 
   private buildSystemPrompt(parentSkills: Skill[]): string {
@@ -66,7 +79,7 @@ export class SkillMaterializer implements SkillBuilder {
     return parts.join("\n");
   }
 
-  private buildUserPrompt(proposal: SkillProposal, context?: PluginContext): string {
+  private buildUserPrompt(proposal: SkillProposal, parentSkills: Skill[], context?: PluginContext): string {
     const parts = [
       `Action: ${proposal.action}`,
       `Skill Name: ${proposal.skillName}`,
@@ -77,6 +90,14 @@ export class SkillMaterializer implements SkillBuilder {
 
     if (proposal.action === "edit" && proposal.editTarget) {
       parts.push(`Edit Target: ${proposal.editTarget}`);
+      const target = parentSkills.find((s) => s.name === proposal.editTarget);
+      if (target) {
+        parts.push("");
+        parts.push("Current content of the skill to edit (revise it, do not start over):");
+        parts.push("```markdown");
+        parts.push(target.content);
+        parts.push("```");
+      }
     }
 
     if (context && Object.keys(context).length > 0) {

@@ -5,7 +5,7 @@ import type { Program, ParetoFrontierConfig } from "./types.js";
  * 라운드로빈 부모 선택, 최저 점수 퇴출 정책.
  */
 export class ParetoFrontier {
-  private programs:        Program[] = [];
+  protected programs:      Program[] = [];
   private roundRobinIndex: number    = 0;
   protected _capacity:     number;
 
@@ -13,7 +13,10 @@ export class ParetoFrontier {
     return this._capacity;
   }
 
-  constructor(protected readonly config: ParetoFrontierConfig) {
+  constructor(
+    protected readonly config: ParetoFrontierConfig,
+    private readonly rng:      () => number = Math.random,
+  ) {
     this._capacity = config.capacity;
   }
 
@@ -50,11 +53,18 @@ export class ParetoFrontier {
   }
 
   /**
-   * 라운드로빈 방식으로 부모 프로그램 선택.
+   * 설정된 전략으로 부모 프로그램 선택.
+   * round-robin: 순환. tournament: 무작위 2개 중 높은 점수.
    */
   selectParent(): Program {
     if (this.programs.length === 0) {
       throw new Error("Frontier is empty, cannot select parent");
+    }
+
+    if (this.config.selectionStrategy === "tournament" && this.programs.length > 1) {
+      const a = this.programs[Math.floor(this.rng() * this.programs.length)];
+      const b = this.programs[Math.floor(this.rng() * this.programs.length)];
+      return a.score >= b.score ? a : b;
     }
 
     const selected       = this.programs[this.roundRobinIndex];
@@ -77,6 +87,22 @@ export class ParetoFrontier {
       }
     }
     return bestProgram;
+  }
+
+  /**
+   * 용량 초과분을 낮은 점수부터 제거한다.
+   */
+  protected trim(): void {
+    while (this.programs.length > this._capacity) {
+      let minIdx = 0;
+      for (let i = 1; i < this.programs.length; i++) {
+        if (this.programs[i].score < this.programs[minIdx].score) minIdx = i;
+      }
+      this.programs.splice(minIdx, 1);
+    }
+    if (this.roundRobinIndex >= this.programs.length) {
+      this.roundRobinIndex = 0;
+    }
   }
 
   getAll(): Program[] {

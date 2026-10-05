@@ -6,6 +6,7 @@
 
 import { Command }    from "commander";
 import { loadState }  from "../state.js";
+import { formatStats } from "./evolve.js";
 
 export function makeStatusCommand(): Command {
   return new Command("status")
@@ -21,7 +22,11 @@ export function makeStatusCommand(): Command {
       console.log(`Last run:        ${state.lastRun}`);
       console.log(`Iterations:      ${report.iterations}`);
       console.log(`Total cost:      $${report.totalCostUsd.toFixed(4)}`);
-      console.log(`Best program:    ${report.bestProgram.id} (score: ${report.bestProgram.score.toFixed(4)})`);
+      console.log(`Best program:    ${report.bestProgram.id} (score: ${formatStats(report.bestProgram.scoreStats, report.bestProgram.score)})`);
+      if (report.holdout) {
+        const sign = report.holdout.delta >= 0 ? "+" : "";
+        console.log(`Hold-out delta:  ${sign}${report.holdout.delta.toFixed(4)} (baseline ${report.holdout.baseline.mean.toFixed(4)} -> best ${report.holdout.best.mean.toFixed(4)})`);
+      }
       console.log(`Frontier size:   ${report.frontier.length}`);
       console.log(`History entries: ${report.history.length}`);
       console.log(`Duration:        ${(report.durationMs / 1000).toFixed(1)}s`);

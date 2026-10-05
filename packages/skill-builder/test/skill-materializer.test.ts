@@ -219,3 +219,32 @@ describe("SkillMaterializer", () => {
     });
   });
 });
+
+describe("SkillMaterializer usage and edit context", () => {
+  it("토큰 사용량을 누적하고 drainUsage로 비운다", async () => {
+    const client = {
+      messages: {
+        create: vi.fn().mockResolvedValue({
+          content: [{ type: "text", text: "```markdown\n# s\n```" }],
+          usage:   { input_tokens: 300, output_tokens: 80 },
+        }),
+      },
+    } as any;
+    const builder = new SkillMaterializer({ model: "claude-haiku-4-5", client });
+    await builder.build(CREATE_PROPOSAL, []);
+
+    expect(builder.drainUsage()).toEqual([{ model: "claude-haiku-4-5", input: 300, output: 80 }]);
+    expect(builder.drainUsage()).toEqual([]);
+  });
+
+  it("edit 제안에는 기존 스킬 본문을 프롬프트에 포함한다", async () => {
+    const client  = createMockClient("```markdown\n# s\n```");
+    const builder = new SkillMaterializer({ client });
+    const existing: Skill = { name: "test-writer", trigger: "t", content: "# Old body marker" };
+    await builder.build(EDIT_PROPOSAL, [existing]);
+
+    const call = client.messages.create.mock.calls[0][0];
+    expect(call.messages[0].content).toContain("# Old body marker");
+  });
+});
+

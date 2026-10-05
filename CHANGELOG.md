@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Multi-run statistics: `Program.scoreStats` and the report now carry mean, sample standard deviation, and 95% confidence interval (`summarize`, `isSignificantImprovement` in core)
+- Hold-out evaluation: optional `holdout/` task directory, reported as `EvolutionReport.holdout`
+- `--adaptive-frontier`, `--frontier-min`, `--frontier-max`, `--selection tournament`, `--acceptance-margin`, `--executor-model` flags
+- Per-model pricing table (`estimateCostUsd`) and `drainUsage()` on `Proposer` / `SkillBuilder`; proposer and builder spend now counts toward `--budget-limit`
+- GitHub Actions workflow running build and test
+
+### Changed
+
+- Candidates are accepted only when they significantly beat their parent, instead of being admitted unconditionally while the frontier has free slots
+- `edit` proposals replace the `editTarget` skill in place (the builder now receives its current content) rather than appending a duplicate
+- Token usage from every run is billed, not only the last run of a multi-run evaluation
+- Budget is checked after training, proposal, build, and validation stages
+- A proposer or builder error skips the iteration instead of aborting the loop
+- `AdaptiveFrontier` is now wired into `EvolutionLoop`; `tournament` selection is implemented
+
 ## [0.2.0] - 2026-03-30
 
 ### Added

@@ -56,13 +56,21 @@ export interface Skill {
   scripts?: Record<string, string>;
 }
 
+export interface ScoreStats {
+  mean:    number;
+  stddev:  number;
+  ci95:    [number, number];
+  samples: number[];
+}
+
 export interface Program {
-  id:        string;
-  generation: number;
-  parentId?: string;
-  skills:    Skill[];
-  score:     number;
-  branch:    string;
+  id:          string;
+  generation:  number;
+  parentId?:   string;
+  skills:      Skill[];
+  score:       number;
+  scoreStats?: ScoreStats;
+  branch:      string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -84,6 +92,17 @@ export interface CostRecord {
   tokenUsage: { input: number; output: number };
   costUsd:    number;
   timestamp:  number;
+}
+
+export interface LlmUsage {
+  model:  string;
+  input:  number;
+  output: number;
+}
+
+export interface ModelPricing {
+  inputPerMTok:  number;
+  outputPerMTok: number;
 }
 
 /* ------------------------------------------------------------------ */
@@ -130,10 +149,14 @@ export interface Executor {
 
 export interface Proposer {
   propose(failures: Failure[], history: FeedbackEntry[], context?: PluginContext): Promise<SkillProposal>;
+  /** 마지막 호출 이후 누적된 LLM 사용량을 반환하고 비운다. */
+  drainUsage?(): LlmUsage[];
 }
 
 export interface SkillBuilder {
   build(proposal: SkillProposal, parentSkills: Skill[], context?: PluginContext): Promise<Skill>;
+  /** 마지막 호출 이후 누적된 LLM 사용량을 반환하고 비운다. */
+  drainUsage?(): LlmUsage[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -158,13 +181,21 @@ export interface DiversityMetrics {
 }
 
 export interface EvolutionConfig {
-  maxIterations:    number;
-  epochs:           number;
-  failureThreshold: number;
-  frontier:         ParetoFrontierConfig;
-  runs:             number;
-  budgetLimit?:     number;
-  maxSkills:        number;
+  maxIterations:      number;
+  epochs:             number;
+  failureThreshold:   number;
+  frontier:           ParetoFrontierConfig | AdaptiveFrontierConfig;
+  runs:               number;
+  budgetLimit?:       number;
+  maxSkills:          number;
+  /** 후보가 부모 대비 최소 이만큼 평균 점수가 높아야 채택 (기본 0). */
+  acceptanceMargin?:  number;
+  /** 실행 어댑터 모델 (비용 추정용). 미지정 시 기본 단가 적용. */
+  executorModel?:     string;
+  /** 모델 단가 재정의 (모델 이름 접두 일치). */
+  pricing?:           Record<string, ModelPricing>;
+  /** 적응형 frontier 용량 조정 주기 (이터레이션 단위, 기본 5). */
+  adaptiveInterval?:  number;
 }
 
 export interface AdapterConfig {
@@ -180,13 +211,21 @@ export interface AdapterConfig {
 /*  Reports & Conflict                                                 */
 /* ------------------------------------------------------------------ */
 
+export interface HoldoutReport {
+  baseline: ScoreStats;
+  best:     ScoreStats;
+  delta:    number;
+}
+
 export interface EvolutionReport {
   bestProgram:    Program;
+  baseline:       Program;
   frontier:       Program[];
   iterations:     number;
   totalCostUsd:   number;
   history:        FeedbackEntry[];
   durationMs:     number;
+  holdout?:       HoldoutReport;
 }
 
 export interface ConflictResult {
