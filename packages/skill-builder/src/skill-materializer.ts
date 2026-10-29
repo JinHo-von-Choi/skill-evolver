@@ -6,6 +6,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Skill, SkillBuilder, SkillProposal, PluginContext, LlmUsage } from "@nerdvana/evolver-core";
 import { META_SKILL } from "./meta-skill.js";
+import { HarnessCompiler } from "./harness-compiler.js";
 
 const DEFAULT_MODEL  = "claude-haiku-4-5";
 const MAX_TOKENS     = 4096;
@@ -13,16 +14,22 @@ const MAX_TOKENS     = 4096;
 interface SkillMaterializerOptions {
   model?:  string;
   client?: Anthropic;
+  enableHarnessCompilation?: boolean;
+  harnessCompiler?:          HarnessCompiler;
 }
 
 export class SkillMaterializer implements SkillBuilder {
   private readonly model:  string;
   private readonly client: Anthropic;
+  private readonly enableHarness: boolean;
+  private readonly harnessCompiler: HarnessCompiler;
   private usage:           LlmUsage[] = [];
 
   constructor(options: SkillMaterializerOptions = {}) {
     this.model  = options.model ?? DEFAULT_MODEL;
     this.client = options.client ?? new Anthropic();
+    this.enableHarness = options.enableHarnessCompilation ?? false;
+    this.harnessCompiler = options.harnessCompiler ?? new HarnessCompiler();
   }
 
   async build(
@@ -51,7 +58,8 @@ export class SkillMaterializer implements SkillBuilder {
       .map((block) => block.text)
       .join("\n");
 
-    return this.parseResponse(text, proposal);
+    const skill = this.parseResponse(text, proposal);
+    return this.enableHarness ? this.harnessCompiler.compileHarness(skill, proposal) : skill;
   }
 
   drainUsage(): LlmUsage[] {

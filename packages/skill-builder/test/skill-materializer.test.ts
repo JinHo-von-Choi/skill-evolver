@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { SkillMaterializer } from "../src/skill-materializer.js";
 import { META_SKILL } from "../src/meta-skill.js";
+import { HarnessCompiler } from "../src/harness-compiler.js";
 import type { SkillProposal, Skill } from "@nerdvana/evolver-core";
 
 /* ------------------------------------------------------------------ */
@@ -138,6 +139,58 @@ describe("SkillMaterializer", () => {
       const skill = await materializer.build(CREATE_PROPOSAL, []);
 
       expect(skill.scripts).toBeUndefined();
+    });
+
+    it("enableHarnessCompilation이 true이면 하네스 스크립트와 실행 절차를 합성한다", async () => {
+      const materializer = new SkillMaterializer({
+        client: createMockClient(MOCK_RESPONSE_SIMPLE),
+        enableHarnessCompilation: true,
+      });
+
+      const skill = await materializer.build(CREATE_PROPOSAL, []);
+
+      expect(Object.keys(skill.scripts!).sort()).toEqual([
+        "scripts/preflight.sh",
+        "scripts/validate.sh",
+      ]);
+      expect(skill.content).toContain("Write unit tests following Given-When-Then pattern.");
+      expect(skill.content).toContain("`scripts/preflight.sh`");
+      expect(skill.content).toContain("`scripts/validate.sh`");
+    });
+
+    it("주입한 HarnessCompiler에 파싱한 Skill과 proposal을 전달한다", async () => {
+      const harnessCompiler = new HarnessCompiler();
+      const compile = vi.spyOn(harnessCompiler, "compileHarness");
+      const materializer = new SkillMaterializer({
+        client: createMockClient(MOCK_RESPONSE_WITH_SCRIPTS),
+        enableHarnessCompilation: true,
+        harnessCompiler,
+      });
+
+      const skill = await materializer.build(CREATE_PROPOSAL, []);
+
+      expect(compile).toHaveBeenCalledExactlyOnceWith(
+        materializer.parseResponse(MOCK_RESPONSE_WITH_SCRIPTS, CREATE_PROPOSAL),
+        CREATE_PROPOSAL,
+      );
+      expect(skill).toBe(compile.mock.results[0].value);
+      expect(skill.scripts!["scripts/validate.ts"]).toContain("validating tests");
+      expect(skill.scripts!["scripts/validate.sh"]).toBeUndefined();
+    });
+
+    it.each([undefined, false])("enableHarnessCompilation이 %s이면 컴파일러를 호출하지 않는다", async (enabled) => {
+      const harnessCompiler = new HarnessCompiler();
+      const compile = vi.spyOn(harnessCompiler, "compileHarness");
+      const materializer = new SkillMaterializer({
+        client: createMockClient(MOCK_RESPONSE_SIMPLE),
+        enableHarnessCompilation: enabled,
+        harnessCompiler,
+      });
+
+      const skill = await materializer.build(CREATE_PROPOSAL, []);
+
+      expect(compile).not.toHaveBeenCalled();
+      expect(skill).toEqual(materializer.parseResponse(MOCK_RESPONSE_SIMPLE, CREATE_PROPOSAL));
     });
 
     it("빈 proposal 필드도 정상 처리된다", async () => {

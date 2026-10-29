@@ -13,10 +13,12 @@ import type {
   EvolutionConfig,
   Failure,
   FeedbackEntry,
-  PluginContext,
-  IterationContext,
-  EvaluationResult,
-} from "../src/types.js";
+   PluginContext,
+   IterationContext,
+   EvaluationResult,
+   Verifier,
+   VerificationResult,
+ } from "../src/types.js";
 
 const trainTasks: Task[] = [
   { id: "t1", input: "2+2", expected: "4" },
@@ -414,5 +416,145 @@ describe("EvolutionLoop", () => {
     expect(report.iterations).toBe(4);
     expect(seen).toHaveLength(4);
   });
+
+  it("대리 검증기를 넘기면 제안 직후 실행된다", async () => {
+    const verify = vi.fn(async () => makeVerification({ approved: true }));
+    const executor: Executor = {
+      async run(program: Program, tasks: Task[]): Promise<ExecutionResult[]> {
+        return tasks.map((t) => {
+          if (trainTaskIds.has(t.id)) return makeResult(t.id, 0.3);
+          return makeResult(t.id, program.skills.length > 0 ? 0.9 : 0.4);
+        });
+      },
+    };
+    const loop = new EvolutionLoop({
+      executor,
+      proposer:        makeMockProposer(),
+      skillBuilder:    makeMockSkillBuilder(),
+      trainTasks,
+      validationTasks: valTasks,
+      config:          makeConfig({ maxIterations: 1, enableSurrogateVerification: true }),
+      verifier:        { verify },
+    });
+    const report = await loop.run();
+
+    expect(verify).toHaveBeenCalledOnce();
+    const [proposal, program, tasks] = verify.mock.calls[0];
+    expect(proposal.skillName).toBe("math-skill-1");
+    expect(program.id).toBe("baseline");
+    expect(tasks).toEqual(valTasks);
+    expect(report.history[0].accepted).toBe(true);
+  });
+
+  it("enableSurrogateVerification이 없으면 검증기를 실행하지 않는다", async () => {
+    const verify = vi.fn(async () => makeVerification({ approved: false }));
+    const loop = new EvolutionLoop({
+      executor:        makeMockExecutor(0.3, 0.9),
+      proposer:        makeMockProposer(),
+      skillBuilder:    makeMockSkillBuilder(),
+      trainTasks,
+      validationTasks: valTasks,
+      config:          makeConfig({ maxIterations: 1 }),
+      verifier:        { verify },
+    });
+    await loop.run();
+
+    expect(verify).not.toHaveBeenCalled();
+  });
+
+  it("검증 기각 제안은 빌드와 평가를 건너뛴다", async () => {
+    const build = vi.fn(async () => ({ name: "x", trigger: "t", content: "c" }));
+    const loop = new EvolutionLoop({
+      executor:        makeMockExecutor(0.3, 0.8),
+      proposer:        makeMockProposer(),
+      skillBuilder:    { build },
+      trainTasks,
+      validationTasks: valTasks,
+      config:          makeConfig({ maxIterations: 2, enableSurrogateVerification: true }),
+      verifier:        { verify: async () => makeVerification({ approved: false, reason: "hardcoded path detected" }) },
+    });
+    const report = await loop.run();
+
+    expect(build).not.toHaveBeenCalled();
+    expect(report.history).toHaveLength(2);
+    expect(report.history.every((h) => !h.accepted)).toBe(true);
+    expect(report.frontier.map((p) => p.id)).toEqual(["baseline"]);
+  });
+
+  it("confidence가 minVerificationConfidence 미만이면 기각한다", async () => {
+    const build = vi.fn(async () => ({ name: "x", trigger: "t", content: "c" }));
+    const loop = new EvolutionLoop({
+      executor:        makeMockExecutor(0.3, 0.9),
+      proposer:        makeMockProposer(),
+      skillBuilder:    { build },
+      trainTasks,
+      validationTasks: valTasks,
+      config:          makeConfig({
+        maxIterations:               1,
+        enableSurrogateVerification: true,
+        minVerificationConfidence:   0.8,
+      }),
+      verifier:        { verify: async () => makeVerification({ approved: true, confidence: 0.6 }) },
+    });
+    const report = await loop.run();
+
+    expect(build).not.toHaveBeenCalled();
+    expect(report.history.every((h) => !h.accepted)).toBe(true);
+  });
+
+  it("confidence가 minVerificationConfidence 이상이면 진행한다", async () => {
+    const executor: Executor = {
+      async run(program: Program, tasks: Task[]): Promise<ExecutionResult[]> {
+        return tasks.map((t) => {
+          if (trainTaskIds.has(t.id)) return makeResult(t.id, 0.3);
+          return makeResult(t.id, program.skills.length > 0 ? 0.9 : 0.4);
+        });
+      },
+    };
+    const loop = new EvolutionLoop({
+      executor,
+      proposer:        makeMockProposer(),
+      skillBuilder:    makeMockSkillBuilder(),
+      trainTasks,
+      validationTasks: valTasks,
+      config:          makeConfig({
+        maxIterations:               1,
+        enableSurrogateVerification: true,
+        minVerificationConfidence:   0.5,
+      }),
+      verifier:        { verify: async () => makeVerification({ approved: true, confidence: 0.5 }) },
+    });
+    const report = await loop.run();
+
+    expect(report.history[0].accepted).toBe(true);
+    expect(report.bestProgram.skills).toHaveLength(1);
+  });
+
+  it("검증기가 실패해도 루프는 계속된다", async () => {
+    const build = vi.fn(async () => ({ name: "x", trigger: "t", content: "c" }));
+    const loop = new EvolutionLoop({
+      executor:        makeMockExecutor(0.3, 0.8),
+      proposer:        makeMockProposer(),
+      skillBuilder:    { build },
+      trainTasks,
+      validationTasks: valTasks,
+      config:          makeConfig({ maxIterations: 2, enableSurrogateVerification: true }),
+      verifier:        { verify: async () => { throw new Error("api timeout"); } },
+    });
+    const report = await loop.run();
+
+    expect(build).not.toHaveBeenCalled();
+    expect(report.iterations).toBe(2);
+    expect(report.history).toHaveLength(0);
+  });
 });
+
+function makeVerification(overrides?: Partial<VerificationResult>): VerificationResult {
+  return {
+    approved:   false,
+    confidence: 1,
+    reason:     "mock verification",
+    ...overrides,
+  };
+}
 

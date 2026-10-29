@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { ConflictDetector } from "../src/conflict-detector.js";
 import type { Skill, ConflictResult } from "../src/types.js";
 
@@ -7,6 +7,20 @@ function makeSkill(name: string, trigger: string): Skill {
 }
 
 describe("ConflictDetector", () => {
+  it("커스텀 유사도 함수를 Jaccard보다 우선 사용한다", () => {
+    const similarityFn = vi.fn().mockReturnValueOnce(0.9).mockReturnValueOnce(0);
+    const detector = new ConflictDetector({ maxSkills: 2, similarityThreshold: 0.85, similarityFn });
+    const result = detector.check(makeSkill("new", "solve math"), [
+      makeSkill("semantic", "calculate equations"),
+      makeSkill("identical", "solve math"),
+    ]);
+    expect(similarityFn.mock.calls).toEqual([["solve math", "calculate equations"], ["solve math", "solve math"]]);
+    expect(result.filter((c) => c.type === "trigger-overlap")).toMatchObject([
+      { existingSkill: "semantic", similarity: 0.9 },
+    ]);
+    expect(result.some((c) => c.type === "capacity")).toBe(true);
+  });
+
   it("트리거 겹침 감지 (Jaccard 유사도)", () => {
     const detector  = new ConflictDetector({ maxSkills: 20, similarityThreshold: 0.5 });
     const existing  = [makeSkill("math-solver", "solve math problems and equations")];

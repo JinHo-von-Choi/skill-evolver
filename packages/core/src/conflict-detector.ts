@@ -3,18 +3,19 @@ import type { Skill, ConflictResult } from "./types.js";
 export interface ConflictDetectorConfig {
   maxSkills:           number;
   similarityThreshold: number;
+  similarityFn?: (a: string, b: string) => number;
 }
 
 /**
  * 스킬 트리거 조건 겹침 검사.
- * Jaccard 유사도 기반 트리거 토큰 비교.
+ * 기본 Jaccard 또는 주입된 유사도 함수로 트리거 비교.
  */
 export class ConflictDetector {
   constructor(private readonly config: ConflictDetectorConfig) {}
 
   /**
    * 새 스킬과 기존 스킬 목록 간 충돌 검사.
-   * trigger-overlap: Jaccard 유사도가 임계값 이상인 경우.
+   * trigger-overlap: 유사도가 임계값 이상인 경우.
    * capacity: 기존 스킬 수가 maxSkills 이상인 경우.
    */
   check(newSkill: Skill, existingSkills: Skill[]): ConflictResult[] {
@@ -23,7 +24,9 @@ export class ConflictDetector {
 
     for (const existing of existingSkills) {
       const existingTokens = this.tokenize(existing.trigger);
-      const similarity     = this.jaccard(newTokens, existingTokens);
+      const similarity     = this.config.similarityFn
+        ? this.config.similarityFn(newSkill.trigger, existing.trigger)
+        : this.jaccard(newTokens, existingTokens);
 
       if (similarity >= this.config.similarityThreshold) {
         results.push({

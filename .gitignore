@@ -39,6 +39,7 @@ Thumbs.db
 # IDE / editors
 .vscode/
 .idea/
+.serena/
 *.swp
 *.swo
 *.suo

@@ -17,6 +17,8 @@ import type {
   ScoreStats,
   LlmUsage,
   HoldoutReport,
+  VerificationResult,
+  Verifier,
 } from "./types.js";
 import { ParetoFrontier }    from "./pareto-frontier.js";
 import { AdaptiveFrontier }  from "./adaptive-frontier.js";
@@ -35,6 +37,8 @@ export interface EvolutionLoopOptions {
   /** 최종 일반화 성능 측정용 hold-out 셋. 진화 중 채택 판단에는 쓰이지 않는다. */
   holdoutTasks?:   Task[];
   config:          EvolutionConfig;
+  /** 제안 직후 실행할 대리 검증기. config.enableSurrogateVerification이 true일 때만 동작한다. */
+  verifier?:       Verifier;
   plugins?:        Plugin[];
 }
 
@@ -60,6 +64,7 @@ export class EvolutionLoop {
   private readonly validationTasks: Task[];
   private readonly holdoutTasks:    Task[];
   private readonly config:          EvolutionConfig;
+  private readonly verifier:        Verifier | undefined;
   private readonly plugins:         Plugin[];
   private readonly frontier:          ParetoFrontier;
   private readonly history:           FeedbackHistory;
@@ -74,6 +79,7 @@ export class EvolutionLoop {
     this.validationTasks = opts.validationTasks;
     this.holdoutTasks    = opts.holdoutTasks ?? [];
     this.config          = opts.config;
+    this.verifier        = opts.verifier;
     this.plugins         = opts.plugins ?? [];
     this.frontier          = this.createFrontier(opts.config);
     this.history           = new FeedbackHistory();
@@ -140,6 +146,31 @@ export class EvolutionLoop {
         this.recordLlmUsage(i, this.proposer.drainUsage?.());
       }
       if (this.costTracker.isOverBudget()) break;
+
+      if (this.verifier && this.config.enableSurrogateVerification) {
+        let verification: VerificationResult;
+        try {
+          verification = await this.verifier.verify(proposal, parent, this.validationTasks);
+        } catch (err) {
+          console.warn(`[evolver] Verifier failed at iteration ${i}: ${errorMessage(err)}`);
+          continue;
+        }
+
+        const rejectionReason = surrogateRejectionReason(verification, this.config.minVerificationConfidence);
+        if (rejectionReason !== null) {
+          console.warn(`[evolver] Rejecting proposal "${proposal.skillName}" at iteration ${i}: ${rejectionReason}`);
+          this.history.log({
+            iteration:   i,
+            proposal,
+            accepted:    false,
+            scoreBefore: parent.score,
+            scoreAfter:  parent.score,
+            delta:       0,
+            timestamp:   Date.now(),
+          });
+          continue;
+        }
+      }
 
       if (this.history.isDuplicate(proposal)) continue;
 
@@ -396,4 +427,18 @@ export class EvolutionLoop {
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * VerificationResult와 요구 confidence를 판정해 기각 사유를 문자열로,
+ * 통과 시 null을 반환한다.
+ */
+function surrogateRejectionReason(verification: VerificationResult, minConfidence?: number): string | null {
+  if (!verification.approved) return verification.reason;
+
+  if (minConfidence !== undefined && verification.confidence < minConfidence) {
+    return `confidence ${verification.confidence} below minVerificationConfidence ${minConfidence}`;
+  }
+
+  return null;
 }

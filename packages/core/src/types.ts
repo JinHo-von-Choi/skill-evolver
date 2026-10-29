@@ -56,6 +56,26 @@ export interface Skill {
   scripts?: Record<string, string>;
 }
 
+export interface PruneResult {
+  keptSkills: Skill[];
+  prunedSkills: string[];
+  consolidatedSkills?: Skill[];
+  rationale: string;
+}
+
+export interface SkillPruner {
+  prune(skills: Skill[], history?: FeedbackEntry[]): Promise<PruneResult>;
+}
+
+export interface GatingConfig {
+  maxActiveSkills?: number;
+  threshold?: number;
+}
+
+export interface DynamicGating {
+  selectSkills(taskInput: string, skills: Skill[]): Skill[];
+}
+
 export interface ScoreStats {
   mean:    number;
   stddev:  number;
@@ -160,6 +180,25 @@ export interface SkillBuilder {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Verification (대리 검증기)                                          */
+/* ------------------------------------------------------------------ */
+
+export type SideEffectRisk = "low" | "medium" | "high";
+
+export interface VerificationResult {
+  approved:       boolean;
+  confidence:     number;
+  reason:         string;
+  edgeCasesIdentified?: string[];
+  sideEffectRisk?: SideEffectRisk;
+  gsoViolations?: string[];
+}
+
+export interface Verifier {
+  verify(proposal: SkillProposal, program: Program, validationTasks?: Task[]): Promise<VerificationResult>;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Configuration                                                      */
 /* ------------------------------------------------------------------ */
 
@@ -196,6 +235,12 @@ export interface EvolutionConfig {
   pricing?:           Record<string, ModelPricing>;
   /** 적응형 frontier 용량 조정 주기 (이터레이션 단위, 기본 5). */
   adaptiveInterval?:  number;
+  /** 제안 직후 대리 검증기를 실행할지 여부 (기본 false). */
+  enableSurrogateVerification?: boolean;
+  /** 대리 검증기가 사용할 모델 이름 (비용 추정·설정 전달용). */
+  verifierModel?:     string;
+  /** 검증 승인에 요구하는 최소 confidence. 미지정 시 confidence 조건 없이 approved만 본다. */
+  minVerificationConfidence?: number;
 }
 
 export interface AdapterConfig {

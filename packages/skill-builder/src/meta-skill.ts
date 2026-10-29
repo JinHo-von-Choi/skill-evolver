@@ -46,9 +46,19 @@ trigger: <when to activate>  # specific, non-overlapping condition
 - Include "do NOT" sections for common mistakes
 - Keep total content under 2000 tokens for efficiency
 
+## Deterministic Verification Harness
+- Every skill should be backed by deterministic verification scripts, not prose-only advice
+- Required scripts in the scripts/ directory:
+  - scripts/preflight.sh: bash script that checks the environment (required commands), tool availability, and the validity of target file paths. It must exit 0 when the environment is ready and a non-zero code when it is not, printing the reason to stderr
+  - scripts/validate.sh: bash script that verifies the result of the run (output files exist and are non-empty, expected state is present, exit code semantics). It must exit 0 when the result is acceptable and a non-zero code when it is not
+- Keep both scripts self-contained, POSIX bash, and idempotent (no side effects on failure)
+- Procedural instructions must reference the scripts by their path (e.g., run ./scripts/preflight.sh before the task, run ./scripts/validate.sh on the result). Verifying state through executable scripts is preferred over checklist wording such as "make sure the output looks correct"
+- A validate step must not be substituted by an unverified assertion; pass criteria are machine-checked exit codes
+
 ## Scripts (Optional)
 - Helper scripts go in a scripts/ directory
 - Scripts should be self-contained and idempotent
 - Name scripts descriptively: validate-input.ts, parse-output.py
 - Scripts must handle errors gracefully with non-zero exit codes
+- Typescript or Python helpers are supplementary; the preflight.sh and validate.sh pair above forms the deterministic harness baseline
 `.trim();
